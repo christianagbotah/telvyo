@@ -1,0 +1,12 @@
+{
+  "name": "telvyo-api",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "jose": "^6.2.17"
+  }
+}

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#FFCD00">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Owner-only Telvyo integration setup and application authentication status.">
+  <title>Integration control · Telvyo</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/admin/admin.css">
+  <script type="module" src="/admin/admin.js"></script>
+</head>
+<body data-admin-page>
+  <a class="skip-link" href="#main">Skip to integration control</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Workspace navigation">
+      <a class="brand" href="/" aria-label="Telvyo home"><img src="/icon.svg" alt="" width="38" height="38">Telvyo<span>.</span></a>
+      <p class="nav-label">OWNER WORKSPACE</p>
+      <nav aria-label="Main"><a class="nav-link" href="/"> <span aria-hidden="true">↗</span> Usage dashboard</a><a class="nav-link active" href="/admin" aria-current="page"><span aria-hidden="true">◈</span> Integrations <span class="nav-dot" aria-hidden="true"></span></a></nav>
+      <div class="private-note"><span class="lock-symbol" aria-hidden="true">↳</span><strong>Private by design</strong><p>Integration settings are available only to the configured site owner.</p></div>
+      <div class="sidebar-foot"><span class="tiny-dot" aria-hidden="true"></span> Telvyo administration</div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><div class="breadcrumb">Workspace <span aria-hidden="true">/</span> <strong>Integrations</strong></div><div class="account"><span class="owner-badge">Owner only</span><span id="owner-email" class="owner-email"></span><a id="sign-out" class="quiet-link" href="/signout-with-chatgpt?return_to=%2Fadmin" target="_top" hidden>Sign out</a></div></header>
+      <main id="main" class="content">
+        <div class="page-heading"><div><p class="eyebrow">A CLEARER CONNECTION</p><h1>Integration control</h1><p class="lede">Set up your carrier credentials. Know exactly what’s ready.</p></div><button id="refresh-button" class="button button-secondary" type="button" disabled><span aria-hidden="true">↻</span> Refresh status</button></div>
+        <p id="request-message" class="request-message" role="status" aria-live="polite" hidden></p>
+        <section id="auth-gate" class="gate card" aria-labelledby="gate-title" aria-busy="true"><div class="gate-mark" aria-hidden="true">◈</div><h2 id="gate-title">Loading owner workspace</h2><p id="gate-description">Checking your sign-in and integration status…</p><div class="gate-actions"><a id="sign-in" class="button button-primary" href="/signin-with-chatgpt?return_to=%2Fadmin" target="_top" hidden>Sign in with ChatGPT</a><a id="gate-sign-out" class="button button-secondary" href="/signout-with-chatgpt?return_to=%2Fadmin" target="_top" hidden>Sign out to switch account</a></div></section>
+        <div id="dashboard" hidden>
+          <section class="overview card" aria-labelledby="provider-heading">
+            <div class="provider-line"><div class="provider-icon" aria-hidden="true">MTN</div><div><p class="eyebrow">CARRIER INTEGRATION</p><h2 id="provider-heading">MTN Developer Platform</h2></div><span id="configuration-status" class="status-pill">Checking</span></div>
+            <p id="configuration-note" class="muted">Checking configuration availability.</p>
+            <dl class="summary-grid"><div><dt>Authentication</dt><dd id="auth-method">—</dd></div><div><dt>Environment</dt><dd id="environment">—</dd></div><div><dt>Selected products</dt><dd id="products">—</dd></div></dl>
+          </section>
+          <div class="detail-grid">
+            <div class="main-column">
+              <section class="card setup-card" aria-labelledby="setup-heading"><div class="section-heading"><div><p class="eyebrow">01 / CONFIGURATION</p><h2 id="setup-heading">Secure setup</h2></div><span class="subtle-tag">In Sites Settings</span></div><p class="section-intro">Credentials belong in the site’s server environment. This page shows whether they are configured; it never receives or saves their values.</p>
+                <ol class="setup-steps"><li><strong>Open the site’s settings</strong><p>In <strong>ChatGPT → Sites → Telvyo → More actions → Settings</strong>, open the environment variables / secrets section.</p><a class="text-link" href="https://chatgpt.com/sites" target="_top">Open Sites settings <span aria-hidden="true">↗</span></a></li><li><strong>Add the configuration below</strong><p>Use the exact, case-sensitive variable names. Mark every credential as a <strong>secret</strong> in the hosting settings.</p></li><li><strong>Apply and refresh</strong><p>Save or apply your changes in Sites Settings and redeploy if prompted. Return here and choose <strong>Refresh status</strong>, then run an available authentication check.</p></li></ol>
+                <h3 class="table-heading">Runtime configuration</h3><div class="variable-list"><div class="variable-row"><code>MTN_AUTH_METHOD</code><p><code>oauth</code> or <code>apiKey</code><span>Choose the method issued for your approved MTN product.</span></p></div><div class="variable-row"><code>MTN_ENVIRONMENT</code><p><code>unknown</code>, <code>sandbox</code>, or <code>production</code><span>Use <code>unknown</code> until MTN confirms the environment.</span></p></div><div class="variable-row"><code>MTN_PRODUCTS</code><p><code>usage,plans,profiles</code><span>Comma-separated approved products; use any nonempty subset of these values.</span></p></div></div>
+                <div id="oauth-fields" class="credential-group"><h3>OAuth credentials <span class="subtle-tag">Secret</span></h3><p class="muted compact">Required when <code>MTN_AUTH_METHOD=oauth</code>.</p><dl class="credential-list"><div><dt><code>MTN_CLIENT_ID</code><span class="secret-label">Secret</span></dt><dd id="client-id-state">Not checked</dd></div><div><dt><code>MTN_CLIENT_SECRET</code><span class="secret-label">Secret</span></dt><dd id="client-secret-state">Not checked</dd></div></dl></div>
+                <div id="api-key-fields" class="credential-group"><h3>API-key credential <span class="subtle-tag">Secret</span></h3><p class="muted compact">Required when <code>MTN_AUTH_METHOD=apiKey</code>.</p><dl class="credential-list"><div><dt><code>MTN_API_KEY</code><span class="secret-label">Secret</span></dt><dd id="api-key-state">Not checked</dd></div></dl></div>
+                <p class="safe-note"><span aria-hidden="true">↳</span> Keep credential values in Sites Settings. Do not paste them into support messages, code, or this dashboard.</p>
+              </section>
+              <section class="card check-card" aria-labelledby="check-heading"><div class="section-heading"><div><p class="eyebrow">02 / VERIFICATION</p><h2 id="check-heading">Check app authentication</h2></div></div><p class="section-intro">For configured production OAuth credentials, this check authenticates the Telvyo application with MTN. It does not request subscriber data.</p><div id="test-result" class="test-result" role="status" aria-live="polite"><span class="result-indicator" aria-hidden="true"></span><div><h3 id="test-result-title">No check recorded</h3><p id="test-result-message">An authentication check has not been recorded for this configuration.</p><time id="test-result-time" hidden></time></div></div><div class="check-actions"><button id="test-button" class="button button-primary" type="button" disabled>Test app authentication <span aria-hidden="true">→</span></button><p id="test-blocked-reason" class="muted compact"></p></div><p class="footnote">Sandbox and API-key verification are pending exact, approved MTN product documentation. No test is available for those configurations. Checks have a shared 30-second cooldown.</p></section>
+            </div>
+            <aside class="support-column" aria-label="Connection readiness and documentation">
+              <section class="readiness-card" aria-labelledby="readiness-heading"><p class="eyebrow">WHAT’S ACTUALLY READY</p><h2 id="readiness-heading">Credentials are the first step.</h2><p>Configuration, app authentication, and access to a subscriber’s account are separate milestones.</p><div class="readiness-item"><span class="readiness-number" aria-hidden="true">1</span><div><h3>Configuration</h3><p id="readiness-config">Waiting for status.</p></div></div><div class="readiness-item"><span class="readiness-number" aria-hidden="true">2</span><div><h3>Application authentication</h3><p id="readiness-auth">Not yet verified.</p></div></div><div class="readiness-item"><span class="readiness-number" aria-hidden="true">3</span><div><h3 id="subscriber-status">Subscriber data · Not connected</h3><p id="subscriber-note">MTN subscriber consent and product access still need approval and verification. A successful app check does not establish either.</p></div></div></section>
+              <section class="card docs-card" aria-labelledby="docs-heading"><p class="eyebrow">MTN RESOURCES</p><h2 id="docs-heading">Know your product</h2><p class="muted">Confirm your market, permissions, and consent requirements with MTN.</p><ul class="resource-links"><li><a href="https://developers.mtn.com/products/usage-management" target="_blank" rel="noopener noreferrer"><span>Usage Management<small>Usage &amp; recharge history</small></span><span aria-hidden="true">↗</span></a></li><li><a href="https://developers.mtn.com/products/mtn-customer-plans-api-v2" target="_blank" rel="noopener noreferrer"><span>Customer Plans v2<small>Plans &amp; balance details</small></span><span aria-hidden="true">↗</span></a></li><li><a href="https://developers.mtn.com/products/mtn-customer-profiles-api-v2-product" target="_blank" rel="noopener noreferrer"><span>Customer Profiles v2<small>Profile &amp; account summary</small></span><span aria-hidden="true">↗</span></a></li><li><a href="https://developers.mtn.com/products/ayo-preapproval" target="_blank" rel="noopener noreferrer"><span>Consent Validation<small>Approved subscriber verification</small></span><span aria-hidden="true">↗</span></a></li></ul></section>
+              <section class="support-note" aria-labelledby="support-heading"><h2 id="support-heading">Need access help?</h2><p>Use the ChatGPT account allowed by the site’s <code>ADMIN_OWNER_EMAIL</code> setting. Account changes require an update in Sites Settings.</p><p>For carrier access, ask MTN for the exact product documentation, environment, market approval, and subscriber-consent process. Share variable names and status messages only.</p></section>
+            </aside>
+          </div>
+          <footer class="page-footer"><span>Telvyo · Your usage, understood.</span><span>Owner workspace / MTN</span></footer>
+        </div>
+        <noscript><p class="request-message">Enable JavaScript to load integration status. Credentials are configured in ChatGPT → Sites → Telvyo → More actions → Settings.</p></noscript>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

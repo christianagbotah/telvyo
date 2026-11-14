@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Telvyo">
+  <rect width="192" height="192" rx="46" fill="#ffcd00"/>
+  <g fill="#202a35">
+    <rect x="43" y="98" width="25" height="47" rx="10"/>
+    <rect x="84" y="73" width="25" height="72" rx="10"/>
+    <rect x="125" y="47" width="25" height="98" rx="10"/>
+  </g>
+  <circle cx="52" cy="55" r="6" fill="#d82135"/>
+  <circle cx="71" cy="55" r="6" fill="#0068bf"/>
+</svg>

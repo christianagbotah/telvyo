@@ -1,0 +1,18 @@
+node_modules/
+.DS_Store
+*.log
+
+.env
+.env.*
+!.env.example
+.kotlin/
+
+# Hosted Worker output and build staging
+hosted-dist/
+.sites-runtime/
+.wrangler/
+.cloudflare/
+dist/.openai/
+
+.dev.vars
+.dev.vars.*
