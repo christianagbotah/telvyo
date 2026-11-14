@@ -1,0 +1,67 @@
+name: Telvyo quality gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telvyo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-backend:
+    name: Web, backend and hosted Worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install reproducible dependencies
+        run: |
+          npm ci
+          npm ci --prefix server
+      - name: Run test suite
+        run: npm test
+      - name: Check JavaScript parsing
+        run: npm run check
+      - name: Build hosted Worker and public assets
+        run: npm run build:hosted
+      - name: Verify hosted output and asset parity
+        run: npm run verify:hosted
+      - name: Audit production dependencies
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm audit --prefix server --omit=dev --audit-level=high
+
+  android:
+    name: Android debug build, unit tests and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Install native build dependencies
+        run: npm ci --prefix mobile
+      - name: Sync checked-in web assets to Android
+        working-directory: mobile
+        run: npx cap sync android
+      - name: Assemble debug, test Java and run Android lint
+        working-directory: mobile/android
+        run: bash ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug --no-daemon
