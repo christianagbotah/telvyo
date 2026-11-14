@@ -1,10 +1,15 @@
 import { authorizeAdmin, createAdminHandler } from './admin.js';
 const handleAdmin = createAdminHandler();
-const adminHeaders = {
-  'cache-control':'no-store',
+const securityHeaders = {
   'x-content-type-options':'nosniff',
-  'referrer-policy':'no-referrer',
+  'referrer-policy':'strict-origin-when-cross-origin',
+  'permissions-policy':'camera=(), microphone=(), geolocation=()',
   'content-security-policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self' https://chatgpt.com https://*.chatgpt.com",
+};
+const adminHeaders = {
+  ...securityHeaders,
+  'cache-control':'no-store',
+  'referrer-policy':'no-referrer',
 };
 function accessPage(status) {
   const signIn = status === 401;
@@ -29,9 +34,8 @@ export default {
       if(path === '/') url.pathname='/index.html';
       else if(path === '/admin' || path === '/admin/') url.pathname='/admin/index.html';
       const response=await env.ASSETS.fetch(new Request(url,request));
-      if(!admin) return response;
       const headers=new Headers(response.headers);
-      for(const [key,value] of Object.entries(adminHeaders)) headers.set(key,value);
+      for(const [key,value] of Object.entries(admin ? adminHeaders : securityHeaders)) headers.set(key,value);
       return new Response(request.method === 'HEAD' ? null : response.body,{status:response.status,headers});
     } catch {
       return new Response('The app is temporarily unavailable.',{status:503,headers:{'cache-control':'no-store'}});
