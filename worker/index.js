@@ -36,6 +36,7 @@ export default {
       const response=await env.ASSETS.fetch(new Request(url,request));
       const headers=new Headers(response.headers);
       for(const [key,value] of Object.entries(admin ? adminHeaders : securityHeaders)) headers.set(key,value);
+      if(path === '/service-worker.js') headers.set('cache-control','no-cache, no-store, must-revalidate');
       return new Response(request.method === 'HEAD' ? null : response.body,{status:response.status,headers});
     } catch {
       return new Response('The app is temporarily unavailable.',{status:503,headers:{'cache-control':'no-store'}});
