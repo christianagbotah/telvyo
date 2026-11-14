@@ -2,7 +2,7 @@ name: Telvyo quality gates
 
 on:
   push:
-    branches: [main, 'hardening/**']
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
