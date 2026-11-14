@@ -950,6 +950,17 @@ document.addEventListener("keydown", (event) => {
 });
 render();
 void connected.initialize();
+// Browser-only offline shell. Native Capacitor assets are already packaged
+// and must not be shadowed by a browser service-worker cache.
+if (globalThis.window?.navigator?.serviceWorker &&
+    globalThis.window.location?.protocol === "https:" &&
+    !globalThis.Capacitor?.isNativePlatform?.()) {
+  window.addEventListener("load", () => {
+    void window.navigator.serviceWorker.register("./service-worker.js").catch(() => {
+      // The tracker still works online and in the native wrapper without SW.
+    });
+  }, { once: true });
+}
 if (storageIssue)
   setTimeout(
     () =>
