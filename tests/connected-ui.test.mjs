@@ -32,15 +32,19 @@ const $ = (s) => document.querySelector(s),
 const set = (name, value) => {
   $(`[name="${name}"]`).value = value;
 };
-assert.match(document.body.textContent, /Connect your phone/);
+assert.match(document.body.textContent, /Start with your SIMs/);
+assert.ok($(".heading-actions [data-action=add-sim]"));
+assert.ok($(".setup-empty [data-action=add-sim]"));
+assert.match(document.body.textContent, /Automatic phone measurements require the Android app/);
 assert.match(document.body.textContent, /Personal workspace/);
 assert.equal(document.querySelectorAll(".sim-item").length, 0);
 click('[data-page="device"]');
 assert.match(document.body.textContent, /Carrier billing connections/);
 assert.match(document.body.textContent, /Not connected/);
-click('[data-action="detect-sims"]');
-await new Promise((resolve) => setTimeout(resolve, 0));
-assert.match(document.body.textContent, /Open the Android app/);
+assert.equal($('[data-action="detect-sims"]').disabled, true);
+assert.equal($('[data-action="usage-settings"]').disabled, true);
+assert.equal($('[data-action="refresh-device"]').disabled, true);
+assert.match(document.body.textContent, /Android required/);
 click('[data-page="insights"]');
 assert.match(document.body.textContent, /Not enough data/);
 click(
