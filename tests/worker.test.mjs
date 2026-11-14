@@ -29,3 +29,23 @@ test('missing asset binding fails safely and unsupported page writes are rejecte
  const post=await worker.fetch(new Request('https://telvyo.test/admin',{method:'POST',headers:owner}),env);
  assert.equal(post.status,405);
 });
+
+test('public pages and downloads receive security headers without changing their caching',async()=>{
+ for(const path of ['/','/app.js','/telvyo-android-preview.apk']){
+  const response=await worker.fetch(new Request('https://telvyo.test'+path),env);
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('cache-control'),'public');
+  assert.equal(response.headers.get('x-content-type-options'),'nosniff');
+  assert.match(response.headers.get('content-security-policy'),/default-src 'self'/);
+  assert.match(response.headers.get('permissions-policy'),/geolocation=\(\)/);
+ }
+ const admin=await worker.fetch(new Request('https://telvyo.test/admin/index.html',{headers:owner}),env);
+ assert.equal(admin.headers.get('cache-control'),'no-store');
+ assert.equal(admin.headers.get('referrer-policy'),'no-referrer');
+});
+test('HEAD returns security headers with no content body',async()=>{
+ const res=await worker.fetch(new Request('https://telvyo.test/app.js',{method:'HEAD'}),env);
+ assert.equal(res.status,200);
+ assert.equal(await res.text(),'');
+ assert.equal(res.headers.get('x-content-type-options'),'nosniff');
+});
