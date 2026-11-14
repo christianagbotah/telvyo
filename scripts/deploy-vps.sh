@@ -15,7 +15,7 @@ if [[ "${1:-}" != "--apply" ]]; then
   exit 2
 fi
 if [[ $(id -u) -ne 0 ]]; then echo "Run as root for controlled deployment." >&2; exit 2; fi
-for cmd in git npm runuser rsync curl; do command -v "$cmd" >/dev/null || { echo "Missing $cmd" >&2; exit 2; }; done
+for cmd in git npm node runuser rsync curl sha256sum; do command -v "$cmd" >/dev/null || { echo "Missing $cmd" >&2; exit 2; }; done
 [[ -d "$SOURCE/.git" && -d "$PUBLIC" ]] || { echo "Expected Telvyo paths missing" >&2; exit 2; }
 [[ -z "$(runuser -u lightworld -- git -C "$SOURCE" status --porcelain)" ]] || { echo "Source has local edits; refusing." >&2; exit 2; }
 
@@ -49,12 +49,20 @@ rollback() {
     echo "Deployment failed. Restoring prior public files from $BACKUP" >&2
     rsync -rlt --delete "$BACKUP/" "$PUBLIC/" || true
   fi
+  if [[ -n "${STAGE:-}" && -d "$STAGE" ]]; then rm -rf "$STAGE"; fi
 }
 trap rollback ERR
 
-echo "Publishing only dist/ to existing Webuzo document root..."
+echo "Stamping public asset requests to bypass Cloudflare's four-hour JS cache..."
+STAGE="$BACKUPS/.staging-$TIMESTAMP"
+mkdir -p "$STAGE"
+rsync -rlt --exclude='.openai' "$SOURCE/dist/" "$STAGE/"
+VERSION=$(node "$SOURCE/scripts/stamp-assets.mjs" "$STAGE" "$SHA" | awk '{print $NF}')
+[[ "$VERSION" == "${SHA:0:12}" ]] || { echo "Release asset stamp mismatch" >&2; exit 1; }
+
+echo "Publishing only staged dist/ to existing Webuzo document root..."
 DEPLOY_STARTED=1
-rsync -rlt --delete --delay-updates --exclude='.openai' "$SOURCE/dist/" "$PUBLIC/"
+rsync -rlt --delete --delay-updates "$STAGE/" "$PUBLIC/"
 
 # Local origin checks avoid stale Cloudflare edge caches.
 origin_url="https://$DOMAIN"
@@ -76,6 +84,11 @@ check_code /v1/advisor 404
 check_code /.env 404
 
 curl -ksS --max-time 8 --resolve "$DOMAIN:443:$ORIGIN_IP" "$origin_url/" | grep -q 'Telvyo'
+curl -ksS --max-time 8 --resolve "$DOMAIN:443:$ORIGIN_IP" "$origin_url/" | grep -q "app.js?v=$VERSION"
+local_hash=$(sha256sum "$PUBLIC/app.js" | awk '{print $1}')
+edge_hash=$(curl -ksS --fail --max-time 12 "$origin_url/app.js?v=$VERSION" | sha256sum | awk '{print $1}')
+[[ "$local_hash" == "$edge_hash" ]] || { echo "Cloudflare is not serving the latest versioned JS" >&2; exit 1; }
+rm -rf "$STAGE"
 echo "$SHA" > "$BACKUPS/current-sha"
 DEPLOY_STARTED=0
 trap - ERR

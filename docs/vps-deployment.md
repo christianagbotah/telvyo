@@ -23,7 +23,7 @@ On the authorized VPS, review the CI checks for the target GitHub main commit an
 sudo bash /home/lightworld/.telvyo-source/scripts/deploy-vps.sh --apply
 ```
 
-The script fetches main, verifies no uncommitted source edits, runs test and syntax checks, tests Nginx configuration, backs up the live public files, updates only static assets and smoke-tests critical public/protected routes against the origin IP. A failed smoke check restores the previous public assets. Backups are **not** a substitute for customer-account database backups if those services are later added.
+The script fetches main, verifies no uncommitted source edits, runs test and syntax checks, tests Nginx configuration, backs up the live public files, stamps static HTML/module imports/offline cache with the Git SHA, and smoke-tests the origin plus Cloudflare's versioned JavaScript. Cloudflare otherwise may reuse a four-hour-old JavaScript response. Public assets are staged outside the document root before publication. A failed smoke check restores the previous public assets. Backups are **not** a substitute for customer-account database backups if those services are later added.
 
 ## Rollback
 
