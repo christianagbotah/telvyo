@@ -32,6 +32,8 @@ jobs:
         run: npm test
       - name: Check JavaScript parsing
         run: npm run check
+      - name: Validate VPS deploy script
+        run: bash -n scripts/deploy-vps.sh
       - name: Build hosted Worker and public assets
         run: npm run build:hosted
       - name: Verify hosted output and asset parity
