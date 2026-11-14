@@ -49,3 +49,10 @@ test('HEAD returns security headers with no content body',async()=>{
  assert.equal(await res.text(),'');
  assert.equal(res.headers.get('x-content-type-options'),'nosniff');
 });
+
+test('the worker entry itself is not cached by the CDN',async()=>{
+ const response=await worker.fetch(new Request('https://telvyo.test/service-worker.js'),env);
+ assert.equal(response.status,200);
+ assert.match(response.headers.get('cache-control'),/no-store/);
+ assert.equal(response.headers.get('x-content-type-options'),'nosniff');
+});
