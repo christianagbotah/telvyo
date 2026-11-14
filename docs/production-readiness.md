@@ -9,6 +9,7 @@
 | Web source, backend tests and hosted Worker build | Automated checks added; first workflow run pending | Green GitHub Actions run on exact release commit |
 | Native Android debug build and unit/lint checks | Automated checks added; first workflow run pending | Green Android job; review lint warnings |
 | Mobile navigation and basic accessibility | More menu, keyboard dismissal, skip link and UI regression tests prepared | Physical phone/browser review at 320px–tablet, screen reader and keyboard |
+| Web offline launch | Public-only static asset service worker and tests prepared | Install/update/offline smoke tests in Chrome and Safari, no admin/API caching |
 | Browser security headers | CSP, nosniff, referrer and permissions policy prepared | Response-header smoke tests on production HTTPS domain |
 | Carrier subscriber balances/charges | **Blocked: no approved live integration** | Carrier contract, production credentials, verified owner/consent, mapping and field-by-field reconciliation |
 | MTN Ghana | Application-authentication test only; no subscriber API authorization | MTN production product approval, country/usage enums and consented test subscriber results |
