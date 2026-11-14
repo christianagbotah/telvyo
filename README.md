@@ -31,7 +31,7 @@ npm run check
 python3 -m http.server 5173 --directory dist
 ```
 
-Open http://localhost:5173. The browser cannot access native SIM/usage APIs. Assets are self-hosted; no browser offline service worker is installed. Native web assets are packaged for offline launch.
+Open http://localhost:5173. The browser cannot access native SIM/usage APIs. Assets are self-hosted. The public web tracker now includes a network-first offline shell for previously visited pages; native web assets remain packaged for offline launch. The browser worker never caches admin, API, subscriber or personal-record requests.
 
 ## Owner administration
 
