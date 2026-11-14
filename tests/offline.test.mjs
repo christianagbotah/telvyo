@@ -33,6 +33,7 @@ test("offline worker allows only static public routes", async () => {
   }
   assert.equal(dispatch("https://evil.test/app.js"), undefined);
   assert.equal(dispatch("https://telvyo.test/app.js", "POST"), undefined);
+  assert.equal((await dispatch("https://telvyo.test/app.js?v=dev")).status, 200);
   assert.equal((await dispatch("https://telvyo.test/app.js")).status, 200);
 });
 
@@ -46,10 +47,13 @@ test("offline worker caches public assets only and falls back when offline", asy
   listeners.get("install")({waitUntil: promise => {installTask = promise;}});
   await installTask;
   assert.ok(records.has("https://telvyo.test/index.html"));
+  assert.ok(records.has("https://telvyo.test/app.js?v=dev"));
+  assert.ok(records.has("https://telvyo.test/styles.css?v=dev"));
   assert.equal(records.has("https://telvyo.test/admin"), false);
   assert.equal(records.has("https://telvyo.test/api/admin/status"), false);
   assert.equal(await (await dispatch("https://telvyo.test/app.js")).text(), "current");
   online = false;
   assert.equal(await (await dispatch("https://telvyo.test/app.js")).text(), "current");
+  assert.equal(await (await dispatch("https://telvyo.test/app.js?v=dev")).text(), "offline");
   assert.equal(await (await dispatch("https://telvyo.test/")).text(), "offline");
 });
