@@ -258,13 +258,15 @@ test("MTN adapter rejects customer mismatch, expired consent and path injection"
   for (const customerId of ["other", "../usage"])
     await assert.rejects(
       fetchMtnResource({
-        operation: "plans",
+        operation: "usage",
         customerId,
         accessToken: "token",
+        countryCode: "MTN_APPROVED_COUNTRY",
+        usageType: "MTN_APPROVED_USAGE_TYPE",
         consent: {
           subject: "u",
           customerId: "233",
-          scopes: ["plans"],
+          scopes: ["usage"],
           expiresAt: Date.now() + 60000,
         },
       }),
