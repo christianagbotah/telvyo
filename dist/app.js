@@ -453,6 +453,7 @@ function openModal(content, wide = false) {
   if (!modal.open) modal.showModal();
 }
 function closeModal() {
+  if (modal.querySelector("#restore-form")) pendingRestore = null;
   modal.close();
   returnFocus?.focus?.();
 }
@@ -757,13 +758,29 @@ function applyReviewedRestore(confirmation) {
   // personal records or announces that the restore succeeded.
   const key = `telco.${mode}.v1`;
   const serialized = JSON.stringify(pendingRestore.ledger);
+  let oldStored = null;
+  let priorWasPresent = false;
+  let wroteBackup = false;
   try {
+    oldStored = localStorage.getItem(key);
+    priorWasPresent = oldStored !== null;
     localStorage.setItem(key, serialized);
+    wroteBackup = true;
     if (localStorage.getItem(key) !== serialized)
-      throw Error("The restored data could not be verified in device storage.");
+      throw Error("Device storage could not verify restored contents.");
   } catch {
     storageIssue = true;
-    if (error) error.textContent = "Device storage could not save this backup. Your current in-app records have not been replaced. Check storage permissions before retrying.";
+    let rolledBack = !wroteBackup;
+    if (wroteBackup) {
+      try {
+        if (priorWasPresent) localStorage.setItem(key, oldStored);
+        else localStorage.removeItem(key);
+        rolledBack = localStorage.getItem(key) === oldStored;
+      } catch { rolledBack = false; }
+    }
+    if (error) error.textContent = rolledBack
+      ? "Device storage could not save this backup. Your current records were kept. Check storage permissions before retrying."
+      : "Device storage could not verify or roll back this replacement. Do not close or reload until you export your current records and review device storage.";
     return false;
   }
   state = pendingRestore.ledger;
@@ -984,6 +1001,7 @@ modal.addEventListener("click", (e) => {
   }
 });
 modal.addEventListener("cancel", () => {
+  if (modal.querySelector("#restore-form")) pendingRestore = null;
   returnFocus?.focus?.();
 });
 modal.addEventListener("change", (e) => {
