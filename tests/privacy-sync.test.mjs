@@ -35,6 +35,9 @@ function setup({invalidSync=false,brokenClear=false}={}) {
       accounts.set(k,{revision:rev,snapshot:null});
       return {revision:rev};
     },
+    async withAccountLock(k, action) {
+      return action({sync:this,consent:repository});
+    },
   };
   const api=createPrivacyAPI({
     env:invalidSync?{...env,ACCOUNT_SYNC_ENCRYPTION_KEY:"bad"}:env,
