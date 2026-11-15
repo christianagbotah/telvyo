@@ -6,6 +6,7 @@ import {
   filterRecords,
   summarize,
   dailyBudgetAlerts,
+  compareBundlePurchases,
   callCharge,
   toCSV,
 } from "./model.js";
@@ -379,6 +380,11 @@ function renderAirtime(s) {
         )
   }</section><aside class="insight">${icon("info")}<p><strong>A clearer picture of your spending.</strong> A tariff estimate may differ from your bill. Enter the actual charge from your carrier when available. Balances do not include unlogged charges or bonus credit.</p></aside>`;
 }
+function renderPurchaseValue() {
+  const comparison = compareBundlePurchases(state, { simId, days });
+  const period = days === 1 ? "Today" : `Last ${days} days`;
+  return `<section class="card bundle-value-card" aria-label="Historical data bundle value comparison"><div class="card-heading"><h2>${icon("wallet")} What your bundles cost</h2><span class="pill gray">${period}</span></div><p class="card-sub">Compare the amount you recorded paying per 1 GB of data allowance on each SIM. This is your purchase history, <strong>not today's network prices</strong>.</p><div class="bundle-value-list">${comparison.rows.map(row => `<article class="bundle-value-item"><div class="bundle-value-top"><strong>${esc(row.carrier)} · SIM ${esc(row.slot)}</strong>${row.lowestRecorded ? '<span class="pill amber">Lowest recorded ₵/GB</span>' : ""}</div><div class="bundle-value-metric">${row.costPerGB === null ? '<strong>—</strong><span>No paid bundle recorded</span>' : `<strong>₵ ${moneyNumber(row.costPerGB)}</strong><span>per 1 GB purchased</span>`}</div><p>${row.purchases} ${row.purchases === 1 ? "data purchase" : "data purchases"} · ${amount(row.purchasedMB)} total allowance · ${money(row.spent)} paid</p>${row.complimentaryPurchases ? `<p class="bundle-value-note">${amount(row.complimentaryMB)} complimentary allowance excluded from the paid-price calculation.</p>` : ""}</article>`).join("") || '<p>No SIM profiles found. Add a SIM to compare your own data purchases.</p>'}</div><p class="metric-evidence">Calculated only from valid purchases you entered within the selected period. Bundles can have different validity, speed, bonuses and eligibility. A lower historical cost per GB is not proof of the best current offer or actual savings.</p></section>`;
+}
 function renderPurchases(s) {
   const totalData = s.purchases
       .filter((r) => r.type === "data")
@@ -386,7 +392,7 @@ function renderPurchases(s) {
     airtime = s.purchases
       .filter((r) => r.type === "airtime")
       .reduce((a, r) => a + r.amount, 0);
-  return `<section class="stats-grid">${stat("Total purchase spending", `<small style="margin-left:0">₵</small> ${moneyNumber(s.purchaseSpend)}`, `<strong>${s.purchases.length} purchases</strong> in this period`, "wallet", true)}${stat("Data purchased", numericAmount(totalData), "Bundle allowances you have recorded", "data")}${stat("Airtime added", `<small style="margin-left:0">₵</small> ${moneyNumber(airtime)}`, "Credit added across selected SIMs", "phone")}</section><section class="card"><div class="card-heading"><h2>Purchase history</h2><div class="record-actions"><button class="secondary-btn" data-action="add" data-tab="data">${icon("plus")}Data bundle</button><button class="secondary-btn" data-action="add" data-tab="airtime">${icon("plus")}Airtime</button></div></div><p class="card-sub">The amount, the time, the SIM. Every purchase in one place.</p>${
+  return `<section class="stats-grid">${stat("Total purchase spending", `<small style="margin-left:0">₵</small> ${moneyNumber(s.purchaseSpend)}`, `<strong>${s.purchases.length} purchases</strong> in this period`, "wallet", true)}${stat("Data purchased", numericAmount(totalData), "Bundle allowances you have recorded", "data")}${stat("Airtime added", `<small style="margin-left:0">₵</small> ${moneyNumber(airtime)}`, "Credit added across selected SIMs", "phone")}</section>${renderPurchaseValue()}<section class="card"><div class="card-heading"><h2>Purchase history</h2><div class="record-actions"><button class="secondary-btn" data-action="add" data-tab="data">${icon("plus")}Data bundle</button><button class="secondary-btn" data-action="add" data-tab="airtime">${icon("plus")}Airtime</button></div></div><p class="card-sub">The amount, the time, the SIM. Every purchase in one place.</p>${
     s.purchases.length
       ? `<div class="table-scroll"><table class="data-table"><thead><tr><th>PURCHASE</th><th>SIM</th><th>ALLOWANCE / CREDIT</th><th>PAID</th><th>PURCHASED AT</th><th></th></tr></thead><tbody>${[
           ...s.purchases,
