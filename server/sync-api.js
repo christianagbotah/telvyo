@@ -62,7 +62,8 @@ export function createSyncAPI({
   let key = null;
   try { key = syncEncryptionKey(env); } catch { /* fail closed */ }
   const configured = !!(key && repository?.get && repository?.save &&
-    repository?.clear && typeof consentCheck === "function" &&
+    repository?.clear && repository?.withAccountLock &&
+    typeof consentCheck === "function" &&
     isHttps(env.AUTH_JWKS_URL) && isHttps(env.AUTH_ISSUER) &&
     isHttps(env.WEB_ORIGIN) && typeof env.AUTH_AUDIENCE === "string" &&
     env.AUTH_AUDIENCE.trim() && Buffer.byteLength(env.ACCOUNT_HASH_KEY || "") >= 32);
@@ -105,79 +106,78 @@ export function createSyncAPI({
       return reply(401, { error: "Invalid or expired sign-in." });
     }
 
-    // Explicit deletion remains available to the verified owner after revocation.
-    if (request.method === "DELETE") {
-      if (request.headers.get("x-telvyo-confirm") !== "DELETE_SYNC_DATA")
-        return reply(400, { error: "Confirm deletion of your cloud sync snapshot." });
-      try {
-        const result = await repository.clear(accountKey);
-        return reply(200, {
-          deleted: true, revision: Number(result.revision),
-          localDeviceRecordsDeleted: false,
-          accountDeleted: false,
-        });
-      } catch {
-        return reply(503, { error: "Cloud snapshot could not be deleted." });
-      }
-    }
-
-    let consented = false;
-    try {
-      consented = await consentCheck(accountKey);
-    } catch {
-      return reply(503, { error: "Sync authorization is temporarily unavailable." });
-    }
-    if (consented !== true)
-      return reply(403, { error: "Enable the current cloud sync consent first." });
-
-    if (request.method === "GET") {
-      try {
-        const row = await repository.get(accountKey);
-        if (!row) return reply(200, { revision: 0, ledger: null });
-        const revision = Number(row.revision);
-        if (!Number.isSafeInteger(revision) || revision < 1)
-          throw Error("Invalid stored revision.");
-        const ledger = row.snapshot
-          ? validateSyncLedger(decryptSnapshot(row.snapshot, accountKey, revision, key), now())
-          : null;
-        return reply(200, {
-          revision, ledger, updatedAt: row.updatedAt,
-        });
-      } catch {
-        return reply(503, { error: "Cloud snapshot is temporarily unavailable." });
-      }
-    }
+    // Reject bad/large payloads before acquiring a database transaction lock.
+    // Authenticated deletes are still permitted after sync consent is revoked.
+    if (request.method === "DELETE" &&
+        request.headers.get("x-telvyo-confirm") !== "DELETE_SYNC_DATA")
+      return reply(400, { error: "Confirm deletion of your cloud sync snapshot." });
 
     let input;
-    try {
-      input = await limitedJSON(request);
-      if (Object.keys(input).sort().join(",") !== "expectedRevision,ledger" ||
-          !Number.isSafeInteger(input.expectedRevision) ||
-          input.expectedRevision < 0 || input.expectedRevision > 1e12)
-        throw Error("A valid expected revision and ledger are required.");
-      validateSyncLedger(input.ledger, now());
-    } catch (e) {
-      return reply(400, { error: e.message });
+    if (request.method === "PUT") {
+      try {
+        input = await limitedJSON(request);
+        if (Object.keys(input).sort().join(",") !== "expectedRevision,ledger" ||
+            !Number.isSafeInteger(input.expectedRevision) ||
+            input.expectedRevision < 0 || input.expectedRevision > 1e12)
+          throw Error("A valid expected revision and ledger are required.");
+        validateSyncLedger(input.ledger, now());
+      } catch (e) {
+        return reply(400, { error: e.message });
+      }
     }
 
     try {
-      const encrypted = encryptSnapshot(
-        input.ledger, accountKey, input.expectedRevision + 1, key,
-      );
-      const saved = await repository.save(
-        accountKey, input.expectedRevision, encrypted,
-      );
-      if (!saved.saved)
-        return reply(409, {
-          error: "A newer cloud snapshot exists. Review it before choosing how to resolve the conflict.",
-          currentRevision: Number(saved.revision),
+      // Consent status and snapshot mutations share the exact SAME
+      // per-account PostgreSQL transaction lock as consent revocation.
+      // A revoked account can never write after the revocation commits.
+      return await repository.withAccountLock(accountKey, async ({ sync, consent }) => {
+        if (request.method === "DELETE") {
+          const result = await sync.clear(accountKey);
+          return reply(200, {
+            deleted: true,
+            revision: Number(result.revision),
+            localDeviceRecordsDeleted: false,
+            accountDeleted: false,
+          });
+        }
+
+        let consented;
+        try {
+          consented = await consentCheck(accountKey, consent);
+        } catch {
+          return reply(503, { error: "Sync authorization is temporarily unavailable." });
+        }
+        if (consented !== true)
+          return reply(403, { error: "Enable the current cloud sync consent first." });
+
+        if (request.method === "GET") {
+          const row = await sync.get(accountKey);
+          if (!row) return reply(200, { revision: 0, ledger: null });
+          const revision = Number(row.revision);
+          if (!Number.isSafeInteger(revision) || revision < 1)
+            throw Error("Invalid stored revision.");
+          const ledger = row.snapshot
+            ? validateSyncLedger(decryptSnapshot(row.snapshot, accountKey, revision, key), now())
+            : null;
+          return reply(200, { revision, ledger, updatedAt: row.updatedAt });
+        }
+
+        const encrypted = encryptSnapshot(
+          input.ledger, accountKey, input.expectedRevision + 1, key,
+        );
+        const saved = await sync.save(accountKey, input.expectedRevision, encrypted);
+        if (!saved.saved)
+          return reply(409, {
+            error: "A newer cloud snapshot exists. Review it before choosing how to resolve the conflict.",
+            currentRevision: Number(saved.revision),
+          });
+        return reply(200, {
+          saved: true, revision: Number(saved.revision),
+          updatedAt: saved.updatedAt,
         });
-      return reply(200, {
-        saved: true, revision: Number(saved.revision),
-        updatedAt: saved.updatedAt,
       });
     } catch {
-      return reply(503, { error: "Cloud snapshot could not be saved." });
+      return reply(503, { error: "Cloud sync is temporarily unavailable." });
     }
   };
 }
