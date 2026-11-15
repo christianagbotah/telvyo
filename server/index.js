@@ -25,8 +25,8 @@ const consentCheck = repository ? async (identity) => {
   return saved?.granted === true &&
     saved.policyVersion === CURRENT_AI_CONSENT_VERSION;
 } : null;
-const syncConsentCheck = repository ? async (accountKey) => {
-  const saved = await repository.latest(accountKey, "cloud-sync");
+const syncConsentCheck = repository ? async (accountKey, transactionalConsent) => {
+  const saved = await (transactionalConsent || repository).latest(accountKey, "cloud-sync");
   return saved?.granted === true &&
     saved.policyVersion === CURRENT_SYNC_CONSENT_VERSION;
 } : null;
