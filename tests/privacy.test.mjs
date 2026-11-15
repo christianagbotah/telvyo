@@ -77,7 +77,8 @@ test("private account endpoints fail closed without signed auth, repository or s
   assert.equal((await api(request("/v1/privacy", { token: "alice", origin: null }))).status, 200);
   assert.equal((await api(request("/v1/privacy/other"))).status, 404);
   assert.equal((await api(request("/v1/privacy", { method: "POST" }))).status, 405);
-  assert.equal((await api(createPrivacyAPI({env, repository:null})(request()))).status, 503);
+  const noRepository = createPrivacyAPI({ env, repository: null });
+  assert.equal((await noRepository(request())).status, 503);
   const noKey = createPrivacyAPI({ env: { ...env, ACCOUNT_HASH_KEY: undefined },
     repository: fixture().store });
   assert.equal((await noKey(request())).status, 503);
