@@ -402,7 +402,7 @@ function renderSims() {
   return `<div class="sim-page-grid">${state.sims.map((s) => simCard(s, true)).join("")}</div><aside class="insight">${icon("sim")}<p><strong>Choose the right SIM for each record.</strong> Manage recorded profiles here, or use Connections to detect active SIMs in the Android app. Detection does not authorize carrier billing or change your phone’s selected SIM.</p></aside>`;
 }
 function renderSettings() {
-  return `<div class="settings-grid"><section class="card settings-card"><h3>Your workspace</h3><p>Keep your personal records separate from the demo.</p><div class="setting-row"><span>Current workspace<small>${mode === "demo" ? "Sample records you can explore and change" : "Your manually entered usage records"}</small></span><span class="pill">${mode === "demo" ? "Demo" : "Personal"}</span></div><div class="setting-row"><span>${mode === "demo" ? "Start tracking your usage" : "Explore the demo"}<small>Your other workspace will be preserved.</small></span><button class="secondary-btn" data-action="switch-mode">Switch ${icon("arrow")}</button></div><div class="setting-row"><span>Currency<small>All costs and rates use Ghana cedis.</small></span><strong>₵</strong></div><div class="setting-row"><span>Data units<small>Decimal units used by mobile operators.</small></span><strong>1 GB = 1,000 MB</strong></div><div class="setting-row"><span>SIM rates & daily budgets<small>Configure each SIM separately.</small></span><button class="quiet-btn" data-page="sims">Manage ${icon("arrow")}</button></div></section><section class="card settings-card"><h3>Your records</h3><p>Records are stored on this device. Clearing browser storage or uninstalling the native app removes them.</p><div class="setting-row"><span>Download a report<small>CSV of the current SIM and date range.</small></span><button class="secondary-btn" data-action="export">${icon("download")}Export CSV</button></div><div class="setting-row"><span>Back up all records<small>JSON backup for your current workspace.</small></span><button class="secondary-btn" data-action="backup">${icon("download")}Backup</button></div><div class="setting-row"><span>Restore a backup<small>Preview before replacing this workspace.</small></span><button class="secondary-btn" data-action="import">${icon("up")}Restore</button></div><div class="setting-row"><span>${mode === "demo" ? "Reset demo data" : "Clear personal records"}<small>${mode === "demo" ? "Restore the original sample week." : "Remove usage, purchases and calls from this workspace."}</small></span><button class="secondary-btn danger-btn" data-action="reset">${icon("refresh")}Reset</button></div></section><section class="card settings-card"><h3>On your phone</h3><p>Use Telvyo in your mobile browser or add it to your Home Screen for quick access.</p><div class="support-grid"><div class="support-item"><strong>${icon("sim")}Android</strong><p>Browser menu → Install app or Add to Home screen. The native Android app supports active SIM discovery and mobile usage queries after permission. Open Connections to enable them. Browser access cannot read phone statistics.</p></div><div class="support-item"><strong>${icon("globe")}iPhone</strong><p>Safari → Share → Add to Home Screen. iOS does not expose other apps’ cellular usage or cellular call history to ordinary apps.</p></div></div></section><section class="card settings-card"><h3>Clear numbers. Honest sources.</h3><p>Telvyo’s current version helps you understand the records you add. Android device measurements are available in Connections. Carrier-reported balances and charges remain unavailable until an approved carrier integration is configured.</p><div class="support-grid"><div class="support-item"><strong>${icon("shield")}Stored on this device</strong><p>Your usage and call records are not sent to a Telvyo server. Export a backup before changing devices.</p></div><div class="support-item"><strong>${icon("phone")}Estimates are labeled</strong><p>Call estimates round up to the next full minute at your configured rate. Carrier bundles, promotions and billing increments may differ.</p></div></div></section></div>`;
+  return `<div class="settings-grid"><section class="card settings-card"><h3>Your workspace</h3><p>Keep your personal records separate from the demo.</p><div class="setting-row"><span>Current workspace<small>${mode === "demo" ? "Sample records you can explore and change" : "Your manually entered usage records"}</small></span><span class="pill">${mode === "demo" ? "Demo" : "Personal"}</span></div><div class="setting-row"><span>${mode === "demo" ? "Start tracking your usage" : "Explore the demo"}<small>Your other workspace will be preserved.</small></span><button class="secondary-btn" data-action="switch-mode">Switch ${icon("arrow")}</button></div><div class="setting-row"><span>Currency<small>All costs and rates use Ghana cedis.</small></span><strong>₵</strong></div><div class="setting-row"><span>Data units<small>Decimal units used by mobile operators.</small></span><strong>1 GB = 1,000 MB</strong></div><div class="setting-row"><span>SIM rates & daily budgets<small>Configure each SIM separately.</small></span><button class="quiet-btn" data-page="sims">Manage ${icon("arrow")}</button></div></section><section class="card settings-card"><h3>Your records</h3><p>Records are stored on this device. Clearing browser storage or uninstalling the native app removes them.</p><div class="setting-row"><span>Download a report<small>CSV of the current SIM and date range.</small></span><button class="secondary-btn" data-action="export">${icon("download")}Export CSV</button></div><div class="setting-row"><span>Back up all records<small>JSON backup for your current workspace.</small></span><button class="secondary-btn" data-action="backup">${icon("download")}Backup</button></div><div class="setting-row"><span>Restore a backup<small>Preview before replacing this workspace.</small></span><button class="secondary-btn" data-action="import">${icon("up")}Restore</button></div><div class="setting-row"><span>${mode === "demo" ? "Reset demo data" : "Clear personal records"}<small>${mode === "demo" ? "Restore the original sample week." : "Remove usage, purchases and calls from this workspace."}</small></span><button class="secondary-btn danger-btn" data-action="reset">${icon("refresh")}Reset</button></div></section><section class="card settings-card"><h3>On your phone</h3><p>Use Telvyo in your mobile browser or add it to your Home Screen for quick access.</p><div class="support-grid"><div class="support-item"><strong>${icon("sim")}Android</strong><p>Browser menu → Install app or Add to Home screen. The native Android app supports active SIM discovery and mobile usage queries after permission. Open Connections to enable them. Browser access cannot read phone statistics.</p></div><div class="support-item"><strong>${icon("globe")}iPhone</strong><p>Safari → Share → Add to Home Screen. iOS does not expose other apps’ cellular usage or cellular call history to ordinary apps.</p></div></div></section><section class="card settings-card"><h3>Clear numbers. Honest sources.</h3><p>Telvyo’s current version helps you understand the records you add. Android device measurements are available in Connections. Carrier-reported balances and charges remain unavailable until an approved carrier integration is configured.</p><div class="support-grid"><div class="support-item"><strong>${icon("shield")}Stored on this device</strong><p>Your usage and call records are not sent to a Telvyo server. Export a backup before changing devices.</p></div><div class="support-item"><strong>${icon("phone")}Estimates are labeled</strong><p>Call estimates round up to the next full minute at your configured rate. Carrier bundles, promotions and billing increments may differ.</p></div></div></section><section class="card settings-card" id="privacy-controls"><h3>Privacy & local data</h3><p>You control the records saved on this device. No account or carrier sync is enabled in this preview.</p><div class="setting-row"><span>Local personal data<small>SIM profiles, recorded usage, purchases and calls. Demo samples are separate.</small></span><span class="pill">Device only</span></div><div class="setting-row"><span>Erase all personal data<small>Completely removes your personal SIM profiles and tracking records from this device. Download a backup first. Existing downloaded files and Android system permissions are not affected.</small></span><button class="secondary-btn danger-btn" data-action="erase-local" ${mode === "demo" ? "disabled" : ""}>${icon("trash")}Erase my data</button></div><p class="metric-evidence">This action does not delete any external carrier records, downloaded exports, or future cloud accounts. To revoke Android access, change permissions in your phone settings.</p></section></div>`;
 }
 function openModal(content, wide = false) {
   returnFocus = document.activeElement;
@@ -537,6 +537,42 @@ function showAlerts() {
   openModal(
     `${modalHeader("Your usage check-in", "Based on today’s logged data. No background monitoring is active.")}<div>${alerts.map(({ sim, summary: s }) => `<div class="notice-row"><strong>${esc(sim.carrier)} · ${amount(s.dataUsedMB)} of ${amount(sim.dailyLimitMB)} budget</strong>${s.dataUsedMB >= sim.dailyLimitMB ? "You’ve reached your daily data budget. Consider switching to Wi-Fi." : `${amount(sim.dailyLimitMB - s.dataUsedMB)} left in your daily budget.`}</div>`).join("")}</div><div class="info-box">These notices update when you open the app or save a record. Change your daily budget in My SIMs.</div>`,
   );
+}
+function showEraseLocalForm() {
+  if (mode !== "personal") {
+    toast("Switch to the personal workspace to erase your own records.");
+    return;
+  }
+  openModal(
+    `${modalHeader("Erase all personal data?", "This action cannot be undone on this device.")}<form id="erase-local-form"><p class="modal-sub">This removes all personal SIM profiles, purchases, usage entries and calls from this browser or app. The demo workspace stays unchanged. Export your backup first if you need it.</p><div class="field full"><label for="erase-local-confirm">Type DELETE to confirm</label><input id="erase-local-confirm" name="confirmation" type="text" maxlength="6" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="DELETE" aria-describedby="erase-local-warning" required></div><p id="erase-local-warning" class="field-note">Downloaded backups and Android system permissions are not erased.</p><p id="erase-local-error" class="form-error" role="alert" aria-live="polite"></p><div class="modal-footer"><button class="secondary-btn" data-action="close" type="button">Cancel</button><button class="primary-btn danger-btn" type="submit">Erase my local data</button></div></form>`,
+  );
+  modal.querySelector("#erase-local-confirm")?.focus();
+}
+function eraseLocalData(confirmation) {
+  const report = modal.querySelector("#erase-local-error");
+  if (mode !== "personal" || confirmation !== "DELETE") {
+    if (report) report.textContent = "Type DELETE exactly to confirm.";
+    return false;
+  }
+  try {
+    localStorage.removeItem("telco.personal.v1");
+    if (localStorage.getItem("telco.personal.v1") !== null)
+      throw Error("Local data remains in storage.");
+  } catch {
+    if (report)
+      report.textContent = "This device could not erase saved records. Your personal workspace was not cleared. Check storage permissions and try again.";
+    return false;
+  }
+  // Update in-memory data only after persistent removal is confirmed.
+  memoryStates.personal = { ...createEmpty(), sims: [] };
+  state = memoryStates.personal;
+  simId = "all";
+  page = "sims";
+  connected.clearSession();
+  closeModal();
+  render();
+  toast("Personal SIMs and recorded data erased from this device.");
+  return true;
 }
 function confirmAction(title, body, button, action, danger = false) {
   openModal(
@@ -699,6 +735,7 @@ document.addEventListener("click", async (e) => {
   else if (action === "help") showHelp();
   else if (action === "tips") showTips();
   else if (action === "alerts") showAlerts();
+  else if (action === "erase-local") showEraseLocalForm();
   else if (action === "switch-mode")
     confirmAction(
       mode === "demo"
@@ -859,6 +896,10 @@ modal.addEventListener("submit", (e) => {
   e.preventDefault();
   const form = e.target,
     fd = new FormData(form);
+  if (form.id === "erase-local-form") {
+    eraseLocalData(fd.get("confirmation"));
+    return;
+  }
   let kind, record;
   try {
     if (form.id === "sim-form") {
