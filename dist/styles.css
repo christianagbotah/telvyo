@@ -713,3 +713,10 @@ dialog { border-color: #e3e2d8; }
   .mobile-more-grid .nav-btn .icon{height:18px;width:18px;flex:none}
   .more-nav-button[aria-expanded="true"]{background:#fff1ad}
 }
+
+/* Privacy action remains intentionally separate from the routine records reset. */
+#privacy-controls .danger-btn:disabled{opacity:.55;cursor:not-allowed}
+#erase-local-form .field{margin-top:18px}
+#erase-local-form .form-error:empty{display:none}
+#erase-local-form .modal-footer{flex-wrap:wrap}
+#erase-local-form .danger-btn{white-space:normal;text-align:center}
