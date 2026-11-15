@@ -1,6 +1,31 @@
 import { createServer } from "node:http";
 import { createGateway } from "./gateway.js";
-const handler = createGateway();
+import { Pool } from "pg";
+import {
+  accountKeyFor, createPrivacyAPI, CURRENT_AI_CONSENT_VERSION,
+} from "./privacy-api.js";
+import { createPgPrivacyStore } from "./privacy-store.js";
+
+const pool = process.env.ACCOUNT_DATABASE_URL
+  ? new Pool({
+      connectionString: process.env.ACCOUNT_DATABASE_URL,
+      max: 4,
+      idleTimeoutMillis: 20000,
+      connectionTimeoutMillis: 5000,
+    })
+  : null;
+const repository = pool ? createPgPrivacyStore(pool) : null;
+const consentCheck = repository ? async (identity) => {
+  const key = accountKeyFor(identity, process.env);
+  const saved = await repository.latest(key, "ai-advisor");
+  return saved?.granted === true &&
+    saved.policyVersion === CURRENT_AI_CONSENT_VERSION;
+} : null;
+const gateway = createGateway({ consentCheck });
+const privacy = createPrivacyAPI({ repository });
+const handler = request => new URL(request.url).pathname.startsWith("/v1/privacy")
+  ? privacy(request) : gateway(request);
+
 const server = createServer(async (req, res) => {
   try {
     const controller = new AbortController();
