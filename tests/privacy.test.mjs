@@ -111,8 +111,10 @@ test("the cloud consent ledger requires current explicit AI policy, supports rev
   assert.equal((await (await api(request("/v1/privacy", { token: "bob" }))).json()).aiAdvisor.granted, false);
   assert.equal((await api(request(endpoint, { method: "DELETE" }))).status, 200);
   assert.equal((await (await api(request())).json()).aiAdvisor.granted, false);
-  assert.equal((await (await api(request(endpoint, { method: "POST",
-    body: { granted: true, policyVersion: CURRENT_AI_CONSENT_VERSION } }))).status, 200);
+  const grantedAgain = await api(request(endpoint, { method: "POST",
+    body: { granted: true, policyVersion: CURRENT_AI_CONSENT_VERSION },
+  }));
+  assert.equal(grantedAgain.status, 200);
   assert.equal((await (await api(request())).json()).aiAdvisor.granted, true);
 });
 
