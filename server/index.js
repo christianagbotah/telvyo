@@ -5,6 +5,9 @@ import {
   accountKeyFor, createPrivacyAPI, CURRENT_AI_CONSENT_VERSION,
 } from "./privacy-api.js";
 import { createPgPrivacyStore } from "./privacy-store.js";
+import { createPgSyncStore } from "./sync-store.js";
+import { createSyncAPI } from "./sync-api.js";
+import { CURRENT_SYNC_CONSENT_VERSION } from "./privacy-api.js";
 
 const pool = process.env.ACCOUNT_DATABASE_URL
   ? new Pool({
@@ -15,16 +18,27 @@ const pool = process.env.ACCOUNT_DATABASE_URL
     })
   : null;
 const repository = pool ? createPgPrivacyStore(pool) : null;
+const syncRepository = pool ? createPgSyncStore(pool) : null;
 const consentCheck = repository ? async (identity) => {
   const key = accountKeyFor(identity, process.env);
   const saved = await repository.latest(key, "ai-advisor");
   return saved?.granted === true &&
     saved.policyVersion === CURRENT_AI_CONSENT_VERSION;
 } : null;
+const syncConsentCheck = repository ? async (accountKey) => {
+  const saved = await repository.latest(accountKey, "cloud-sync");
+  return saved?.granted === true &&
+    saved.policyVersion === CURRENT_SYNC_CONSENT_VERSION;
+} : null;
 const gateway = createGateway({ consentCheck });
-const privacy = createPrivacyAPI({ repository });
-const handler = request => new URL(request.url).pathname.startsWith("/v1/privacy")
-  ? privacy(request) : gateway(request);
+const privacy = createPrivacyAPI({ repository, syncRepository });
+const sync = createSyncAPI({ repository: syncRepository, consentCheck: syncConsentCheck });
+const handler = request => {
+  const path = new URL(request.url).pathname;
+  if (path.startsWith("/v1/privacy")) return privacy(request);
+  if (path.startsWith("/v1/sync")) return sync(request);
+  return gateway(request);
+};
 
 const server = createServer(async (req, res) => {
   try {

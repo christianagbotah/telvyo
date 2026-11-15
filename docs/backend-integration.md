@@ -14,6 +14,19 @@ Only `source`, `daysObserved`, `averageDailyMB`, `backgroundShare` and `projecte
 
 The rate limiter is process-local and bounded. Multi-instance production deployment needs a shared limiter or API gateway. Add operational monitoring, a secrets-rotation policy and audited deployment controls before launch. The source tests use stub provider responses; they do not establish live account access or provider availability.
 
+## Private encrypted cross-device snapshot foundation — not activated
+
+The Node service now has a source-only, **opt-in encrypted sync** backend. See [private sync architecture, migration steps, security and remaining launch gates](private-sync-foundation.md). It is not publicly reverse-proxied, and web/mobile sign-in and sync UI are not connected.
+
+- Apply `server/migrations/001_privacy_consent.sql` and **then** `002_sync_snapshots.sql` to an approved, isolated PostgreSQL instance; provide a dedicated least-privilege runtime DB role.
+- Configure a protected, unique 32-byte base64 `ACCOUNT_SYNC_ENCRYPTION_KEY` separate from `ACCOUNT_HASH_KEY`. Do not rotate either without planning how to migrate existing encrypted records.
+- `POST /v1/privacy/cloud-sync` with the current policy version explicitly opts an authenticated account into cloud sync; `DELETE` revokes and clears encrypted records. `GET /v1/privacy` reports separate AI and sync consent states. None of this is permission to access MTN, Telecel or AT subscriber billing.
+- `GET /v1/sync`, `PUT /v1/sync` and confirmed `DELETE /v1/sync` require verified JWT identity. Reads and writes additionally require a server-side current sync consent check. Writes require an expected revision and return 409 instead of silently overwriting newer data.
+- Snapshots are AES-256-GCM encrypted before entering PostgreSQL, authenticated to the pseudonymous account key and revision. The server can decrypt them for authorized responses; this is **not end-to-end encryption** or a claim of zero operator access.
+- Clearing cloud sync retains a pseudonymous revision tombstone to stop stale devices restoring an erased snapshot, not a raw subscriber identifier or the erased ledger. Retention and data protection review remain required.
+
+**Release gates:** OIDC/PKCE login on web + Android, access token lifecycle, explicit sync opt-in UX, conflict resolution, post-revoke concurrency tests, rate limits, formal deletion/retention controls, backups, audits, physical-phone testing and a privacy/legal assessment. Existing device records remain local until a customer separately and explicitly chooses to upload. No public API is activated by this addition.
+
 ## MTN Ghana adapter
 
 The internal `server/mtn.js` adapter implements the documented production host and paths:
