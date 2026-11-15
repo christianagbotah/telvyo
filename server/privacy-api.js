@@ -90,7 +90,7 @@ export function createPrivacyAPI({
   let encryptionReady = false;
   try { syncEncryptionKey(env); encryptionReady = true; } catch { /* fail closed */ }
   const syncReady = configured && encryptionReady && !!(
-    syncRepository?.clear && syncRepository?.get && syncRepository?.save
+    syncRepository?.clear && syncRepository?.get && syncRepository?.save && syncRepository?.withAccountLock
   );
 
   return async function handlePrivacy(request) {
@@ -208,31 +208,46 @@ export function createPrivacyAPI({
           return respond(400, {
             error: "Explicit opt-in to the current cloud sync policy is required.",
           });
-        const saved = await repository.append(accountKey, "cloud-sync", true,
-          CURRENT_SYNC_CONSENT_VERSION);
+        const saved = await syncRepository.withAccountLock(accountKey,
+          async ({ consent }) => consent.append(accountKey, "cloud-sync", true,
+            CURRENT_SYNC_CONSENT_VERSION));
         return respond(200, { granted: true, recordedAt: saved.at });
       }
       if (path === "/v1/privacy/cloud-sync" && request.method === "DELETE") {
-        if (!syncRepository?.clear)
+        if (!syncReady)
           return respond(503, { error: "Encrypted sync records are unavailable." });
-        // Clear the ciphertext BEFORE revoking: a failed delete must not
-        // falsely claim that cloud data has been removed.
-        await syncRepository.clear(accountKey);
-        const saved = await repository.append(accountKey, "cloud-sync", false,
-          CURRENT_SYNC_CONSENT_VERSION);
+        // A snapshot save can no longer commit after this revocation commits:
+        // the two operations acquire the same account transaction lock.
+        const saved = await syncRepository.withAccountLock(accountKey,
+          async ({ sync, consent }) => {
+            await sync.clear(accountKey);
+            return consent.append(accountKey, "cloud-sync", false,
+              CURRENT_SYNC_CONSENT_VERSION);
+          });
         return respond(200, { granted: false, cloudSyncDataDeleted: true,
           recordedAt: saved.at, localDeviceRecordsDeleted: false });
       }
       if (path === "/v1/privacy/records" && request.method === "DELETE") {
         if (request.headers.get("x-telvyo-confirm") !== "DELETE_CLOUD_RECORDS")
           return respond(400, { error: "Confirm deletion of cloud consent records." });
-        // Always clear available encrypted snapshots before consent history.
-        // Tombstone retains only pseudonymous key/revision to stop stale reuploads.
-        if (syncRepository?.clear) await syncRepository.clear(accountKey);
-        await repository.clear(accountKey);
+        // Both erasure operations MUST succeed in one transaction; never clear
+        // the permission history while a private ciphertext could remain.
+        if (syncReady) {
+          await syncRepository.withAccountLock(accountKey,
+            async ({ sync, consent }) => {
+              await sync.clear(accountKey);
+              await consent.clear(accountKey);
+            });
+        } else {
+          // If sync infrastructure is only partly configured, fail closed.
+          if (syncRepository) return respond(503, {
+            error: "Encrypted sync records must be available for cloud account erasure.",
+          });
+          await repository.clear(accountKey);
+        }
         return respond(200, {
           cloudConsentRecordsDeleted: true,
-          cloudSyncDataDeleted: Boolean(syncRepository?.clear),
+          cloudSyncDataDeleted: syncReady,
           identityProviderAccountDeleted: false,
           localDeviceRecordsDeleted: false,
         });
