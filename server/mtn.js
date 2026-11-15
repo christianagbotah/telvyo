@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 const BASE = "https://api.mtn.com/v1";
+// Usage Management v3.0.0, 2026-11-11. Customer Plans is a separate MTN product.
 const OPERATIONS = {
-  plans: (id) => `/customers/${id}/plans`,
   usage: (id) => `/usage/${id}`,
   usageCharge: (id) => `/usageCharge/${id}`,
   recharge: (id) => `/recharge/${id}`,
@@ -65,6 +65,7 @@ export async function fetchMtnResource(
     endTime,
     pageNumber = 1,
     pageSize = 50,
+    historyType,
   },
   fetchImpl = fetch,
 ) {
@@ -100,7 +101,7 @@ export async function fetchMtnResource(
   const url = new URL(
     BASE + OPERATIONS[operation](encodeURIComponent(customerId)),
   );
-  if (operation !== "plans") {
+  {
     if (
       !Number.isInteger(pageNumber) ||
       pageNumber < 1 ||
@@ -113,7 +114,10 @@ export async function fetchMtnResource(
       usageType: usage ? usageType : undefined,
       startTime,
       endTime,
-      pageNumber,
+      // v3 Swagger: recharge uses pageNum; usage/charges use pageNumber.
+      ...(operation === "recharge"
+        ? { pageNum: pageNumber, historyType }
+        : { pageNumber }),
       pageSize,
     })) {
       if (value === undefined) continue;
@@ -137,8 +141,7 @@ export async function fetchMtnResource(
       countryCode.length > 40
     )
       throw Error("Invalid countryCode.");
-    headers[operation === "plans" ? "x-country-code" : "countryCode"] =
-      countryCode;
+    headers.countryCode = countryCode;
   }
   const payload = await providerJSON(
     url.toString(),

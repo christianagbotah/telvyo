@@ -258,15 +258,76 @@ test("MTN adapter rejects customer mismatch, expired consent and path injection"
   for (const customerId of ["other", "../usage"])
     await assert.rejects(
       fetchMtnResource({
-        operation: "plans",
+        operation: "usage",
         customerId,
         accessToken: "token",
+        countryCode: "MTN_APPROVED_COUNTRY",
+        usageType: "MTN_APPROVED_USAGE_TYPE",
         consent: {
           subject: "u",
           customerId: "233",
-          scopes: ["plans"],
+          scopes: ["usage"],
           expiresAt: Date.now() + 60000,
         },
       }),
     );
+});
+
+
+test("MTN v3 Usage Management parameters and operations match the documented contract", async () => {
+  const authorized = (operation) => ({
+    subject: "verified-user",
+    customerId: "233555000111",
+    scopes: [operation],
+    expiresAt: Date.now() + 60000,
+  });
+  const calls = [];
+  const fake = async (url, init) => {
+    calls.push({ url: new URL(url), headers: init.headers });
+    return Response.json({ data: [], unit: "UNVERIFIED" });
+  };
+
+  await fetchMtnResource({
+    operation: "usage", customerId: "233555000111",
+    accessToken: "test-token", consent: authorized("usage"),
+    countryCode: "MTN_APPROVED_COUNTRY",
+    usageType: "MTN_APPROVED_USAGE_TYPE",
+    pageNumber: 2, pageSize: 25,
+  }, fake);
+  const usage = calls.at(-1);
+  assert.equal(usage.url.pathname, "/v1/usage/233555000111");
+  assert.equal(usage.url.searchParams.get("pageNumber"), "2");
+  assert.equal(usage.url.searchParams.get("pageNum"), null);
+  assert.equal(usage.url.searchParams.get("usageType"), "MTN_APPROVED_USAGE_TYPE");
+  assert.equal(usage.headers.countryCode, "MTN_APPROVED_COUNTRY");
+  assert.match(usage.headers.transactionId, /^[0-9a-f-]{36}$/i);
+
+  await fetchMtnResource({
+    operation: "usageCharge", customerId: "233555000111",
+    accessToken: "test-token", consent: authorized("usageCharge"),
+    countryCode: "MTN_APPROVED_COUNTRY",
+    usageType: "MTN_APPROVED_USAGE_TYPE",
+  }, fake);
+  const charges = calls.at(-1);
+  assert.equal(charges.url.pathname, "/v1/usageCharge/233555000111");
+  assert.equal(charges.url.searchParams.get("pageNumber"), "1");
+
+  await fetchMtnResource({
+    operation: "recharge", customerId: "233555000111",
+    accessToken: "test-token", consent: authorized("recharge"),
+    pageNumber: 3, pageSize: 30, historyType: "MTN_APPROVED_HISTORY_TYPE",
+  }, fake);
+  const recharge = calls.at(-1);
+  assert.equal(recharge.url.pathname, "/v1/recharge/233555000111");
+  assert.equal(recharge.url.searchParams.get("pageNum"), "3");
+  assert.equal(recharge.url.searchParams.get("pageNumber"), null);
+  assert.equal(recharge.url.searchParams.get("usageType"), null);
+  assert.equal(recharge.url.searchParams.get("historyType"), "MTN_APPROVED_HISTORY_TYPE");
+
+  await assert.rejects(fetchMtnResource({
+    operation: "plans", customerId: "233555000111",
+    accessToken: "test-token", consent: authorized("plans"),
+    countryCode: "MTN_APPROVED_COUNTRY",
+  }, fake), /Invalid MTN resource/);
+  assert.equal(calls.length, 3);
 });

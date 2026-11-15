@@ -19,10 +19,12 @@ The rate limiter is process-local and bounded. Multi-instance production deploym
 The internal `server/mtn.js` adapter implements the documented production host and paths:
 
 - OAuth client credentials: `POST https://api.mtn.com/v1/oauth/access_token?grant_type=client_credentials` with a form body containing `client_id` and `client_secret`.
-- Plans: `GET /customers/{id}/plans`.
+- Customer Plans is a **separate MTN product**, not included in the currently approved Usage Management v3 contract. It is not callable through this adapter without separate product approval.
 - Usage: `GET /usage/{id}`.
 - Out-of-bundle charges: `GET /usageCharge/{id}`.
 - Recharges: `GET /recharge/{id}`.
+
+The reviewed [Usage Management v3.0.0 Swagger](https://developers.mtn.com/products/usage-management/download/swagger) was updated 11 November 2026. `GET /usage/{id}` and `GET /usageCharge/{id}` require the `countryCode` header and `usageType` query parameter. They use `pageNumber` for pagination. `GET /recharge/{id}` permits a `countryCode` header but uses **`pageNum`**, not `pageNumber`; its optional `historyType` is supported. These operations belong to the documented `usagemanagementsssd` group. 
 
 Usage requests require explicitly approved `countryCode` and `usageType` values. Public shared schemas do not establish Ghana's enum values, timestamp formats, all billing units or the complete rated-call fields. The adapter deliberately does not assume GH/GHA, seconds, cedis or bundle sizes. It returns the raw provider payload with operation and fetch-time provenance and `mapped: false`. A Ghana-tested normalizer must map units, currency, event times, freshness, pagination and errors before any figure can appear as a verified balance or charge.
 
@@ -54,3 +56,16 @@ The server derives a pseudonymous HMAC-SHA256 account key from the verified issu
 The advisor gateway now **fails closed** unless it has a server-side consent checker. It checks the authenticated account's *latest* consent and current policy version for every AI request; a client-supplied `consent: true` field is never sufficient. A missing PostgreSQL connection, missing identity configuration, absent consent or revoked/expired policy prevents provider access. The PostgreSQL store uses parameterized queries. Use a dedicated low-privilege DB role, transport encryption for remote DB hosts, protected backups, rotation planning for the HMAC key, and privacy/compliance review before live use.
 
 This foundation is not a complete sign-in flow or automatic carrier linking. Remaining: choose and configure an identity provider, implement PKCE on web/native clients and secure token lifecycle, deploy the database migration, obtain carrier approvals, add rate limits and monitor all customer consent transitions without recording sensitive payloads.
+
+## MTN application-credential check (private; no subscriber queries)
+
+MTN's current OAuth guide confirms that the approved Consumer Key and Consumer Secret are the production app credentials for the `client_credentials` flow. Never put them in source, GitHub, public JavaScript or screenshots. Use the private file `/home/lightworld/.config/telvyo/mtn.env` (outside the web document root, owner-only `0600` permissions) with exactly `MTN_CLIENT_ID` and `MTN_CLIENT_SECRET`. An operator can enter their own credentials directly through an authorized secure VPS session.
+
+After securely filling that file, run from the private source checkout:
+
+```bash
+cd /home/lightworld/.telvyo-source
+node --env-file=/home/lightworld/.config/telvyo/mtn.env scripts/check-mtn-token.mjs
+```
+
+The output contains only success/failure and expiry timing, **never a token or secret**. This verifies **application** authentication only; it does not grant subscriber access, verify Ghana's `countryCode` or `usageType` values, or establish carrier consent. Do not enable any public subscriber API before MTN confirms its subscriber ownership/consent procedure, test MSISDN, permitted routing values and response units. No live provider request is made until an operator adds credentials and runs the check.
