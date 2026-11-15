@@ -399,6 +399,76 @@ export function summarize(
  * This is not carrier-rated consumption, a push notification or a SIM-specific
  * Android network measurement.
  */
+/**
+ * Compare the amounts this user recorded paying for data bundles on each SIM.
+ * This is a historical purchase-ledger calculation, not a current network
+ * price quote, bundle validity check, or recommendation to switch networks.
+ * Complimentary purchases are kept in the allowance count but EXCLUDED
+ * from the paid-price-per-GB metric to avoid misleading dilution.
+ */
+export function compareBundlePurchases(
+  state,
+  { days = 30, simId = "all", now = Date.now() } = {},
+) {
+  now = validClock(now);
+  const chosenDays = dayCount(days);
+  const sims = (Array.isArray(state?.sims) ? state.sims : [])
+    .filter((sim) => simId === "all" || sim.id === simId);
+  const ledger = {
+    ...state,
+    sims: Array.isArray(state?.sims) ? state.sims : [],
+    purchases: Array.isArray(state?.purchases) ? state.purchases : [],
+    usage: Array.isArray(state?.usage) ? state.usage : [],
+    calls: Array.isArray(state?.calls) ? state.calls : [],
+  };
+  const start = firstDay(now, chosenDays).getTime();
+  const purchases = ledger.purchases.filter((record) => {
+    const timestamp = timestampValue(record?.timestamp);
+    return record?.type === "data" &&
+      timestamp >= start && timestamp <= now &&
+      (simId === "all" || record.simId === simId) &&
+      validateRecord("purchase", record, ledger, now) === null;
+  });
+  const rows = sims.map((sim) => {
+    const own = purchases.filter((record) => record.simId === sim.id);
+    const paid = own.filter((record) => record.cost > 0);
+    const complimentary = own.filter((record) => record.cost === 0);
+    const paidMB = sum(paid, "amount");
+    const freeMB = sum(complimentary, "amount");
+    const spent = sum(paid, "cost");
+    return {
+      simId: sim.id,
+      carrier: sim.carrier,
+      slot: sim.slot,
+      label: sim.label,
+      purchases: own.length,
+      paidPurchases: paid.length,
+      complimentaryPurchases: complimentary.length,
+      purchasedMB: round(paidMB + freeMB, 6),
+      paidMB: round(paidMB, 6),
+      complimentaryMB: round(freeMB, 6),
+      spent: round(spent),
+      costPerGB: paidMB > 0 && spent > 0
+        ? round(spent * 1000 / paidMB)
+        : null,
+    };
+  });
+  const comparable = rows.filter((row) => row.costPerGB !== null);
+  const lowest = comparable.length >= 2
+    ? Math.min(...comparable.map((row) => row.costPerGB))
+    : null;
+  return {
+    days: chosenDays,
+    rows: rows.map((row) => ({
+      ...row,
+      lowestRecorded: lowest !== null && row.costPerGB === lowest,
+    })),
+    totalSpent: round(rows.reduce((total, row) => total + row.spent, 0)),
+    totalPurchasedMB: round(rows.reduce((total, row) => total + row.purchasedMB, 0), 6),
+    comparableSimCount: comparable.length,
+  };
+}
+
 export function dailyBudgetAlerts(state, now = Date.now()) {
   now = validClock(now);
   const sims = Array.isArray(state?.sims) ? state.sims : [];
