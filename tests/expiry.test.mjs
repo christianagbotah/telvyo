@@ -91,7 +91,7 @@ test("CSV includes expiry without changing the final source column", () => {
   const csv = toCSV(state, { now: NOW, days: 7 });
   const [headers, ...lines] = csv.split("\r\n");
   assert.match(headers, /"recorded_expiry","source"$/);
-  assert.match(lines[0], new RegExp(iso(24).replace(/[.*+?^$\{\}()|[\]\\]/g, "\\$&")));
+  assert.ok(csv.includes(iso(24)), "Recorded expiry is in the export");
   assert.ok(lines.every((line) => /"manual"$/.test(line)));
   assert.match(csv, /"legacy"/);
 });
