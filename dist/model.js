@@ -223,6 +223,11 @@ export function validateRecord(kind, record, state, now = Date.now()) {
       return "The call rate must be a finite number of zero or more.";
     if (!positive(record.dailyLimitMB))
       return "The daily data limit must be greater than zero.";
+    // Unset/legacy monthly budgets are allowed. A configured budget is optional.
+    if (record.monthlySpendLimit !== undefined && record.monthlySpendLimit !== null &&
+        (!isNumber(record.monthlySpendLimit) || record.monthlySpendLimit < 0.01 ||
+          record.monthlySpendLimit > 10000000))
+      return "Enter a monthly spending budget of at least ₵0.01, or leave it blank.";
     return null;
   }
   if (!sims.some((sim) => sim.id === record.simId))
@@ -522,6 +527,71 @@ export function bundleExpiryWatch(
   soon.sort((a, b) => a.expiresAt.localeCompare(b.expiresAt) || a.purchaseId.localeCompare(b.purchaseId));
   recentlyExpired.sort((a, b) => b.expiresAt.localeCompare(a.expiresAt) || a.purchaseId.localeCompare(b.purchaseId));
   return { soon, recentlyExpired };
+}
+
+/**
+ * Per-SIM monthly cash outlay from locally entered data and airtime purchases.
+ * Prepaid call charges are excluded to avoid counting the same top-up twice.
+ * Local calendar months (not rolling 30 days), no automatic carrier imports.
+ */
+export function monthlySpending(
+  state,
+  { simId = "all", now = Date.now() } = {},
+) {
+  now = validClock(now);
+  const date = new Date(now);
+  const first = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+  const previous = new Date(date.getFullYear(), date.getMonth() - 1, 1).getTime();
+  const ledger = {
+    ...state,
+    sims: Array.isArray(state?.sims) ? state.sims : [],
+    purchases: Array.isArray(state?.purchases) ? state.purchases : [],
+    usage: Array.isArray(state?.usage) ? state.usage : [],
+    calls: Array.isArray(state?.calls) ? state.calls : [],
+  };
+  const valid = ledger.purchases.filter((record) => {
+    const time = timestampValue(record?.timestamp);
+    return time >= previous && time <= now &&
+      validateRecord("purchase", record, ledger, now) === null;
+  });
+  const rows = ledger.sims
+    .filter((sim) => simId === "all" || sim.id === simId)
+    .map((sim) => {
+      const own = valid.filter((record) => record.simId === sim.id);
+      const current = own.filter((record) => timestampValue(record.timestamp) >= first);
+      const last = own.filter((record) => timestampValue(record.timestamp) < first);
+      const limit = isNumber(sim.monthlySpendLimit) && sim.monthlySpendLimit > 0
+        ? sim.monthlySpendLimit : null;
+      const spent = round(sum(current, "cost"));
+      const previousSpent = round(sum(last, "cost"));
+      const percentUsed = limit === null ? null : round(spent / limit * 100, 1);
+      const status = limit === null ? "unconfigured"
+        : spent >= limit ? "reached"
+        : spent >= 0.8 * limit ? "approaching" : "within";
+      return {
+        simId: sim.id,
+        carrier: sim.carrier,
+        slot: sim.slot,
+        label: sim.label,
+        limit,
+        spent,
+        dataSpent: round(sum(current.filter((record) => record.type === "data"), "cost")),
+        airtimeSpent: round(sum(current.filter((record) => record.type === "airtime"), "cost")),
+        purchaseCount: current.length,
+        previousSpent,
+        percentUsed,
+        remaining: limit === null ? null : round(Math.max(0, limit - spent)),
+        overBudget: limit === null ? null : round(Math.max(0, spent - limit)),
+        status,
+      };
+    });
+  return {
+    month: date.toLocaleString("en-GB", { month: "long", year: "numeric" }),
+    rows,
+    totalSpent: round(rows.reduce((total, row) => total + row.spent, 0)),
+    previousTotal: round(rows.reduce((total, row) => total + row.previousSpent, 0)),
+    configuredCount: rows.filter((row) => row.limit !== null).length,
+  };
 }
 
 export function dailyBudgetAlerts(state, now = Date.now()) {
