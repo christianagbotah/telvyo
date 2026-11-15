@@ -106,6 +106,8 @@ test("sync ledger rejects hidden fields, unknown SIM and malformed content",()=>
     {...sample(), version:2},
     {...sample(), sims:[...sample().sims, {...sample().sims[0],id:"third",slot:1}]},
     {...sample(), purchases:[{...sample().purchases[0], bearer:"hidden"}]},
+    {...sample(), sims:[{...sample().sims[0],source:{token:"hidden"}},sample().sims[1]]},
+    {...sample(), sims:[{...sample().sims[0],rateSource:"x".repeat(50)},sample().sims[1]]},
     {...sample(), calls:[{...sample().calls[0],simId:"unknown"}]},
     {...sample(), purchases:[...sample().purchases,...sample().purchases]},
   ])assert.throws(()=>validateSyncLedger(field,NOW));
