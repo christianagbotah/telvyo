@@ -38,6 +38,10 @@ export function validateSyncLedger(ledger, now = Date.now()) {
       if (!plain(record) ||
           Object.keys(record).some(k => !ALLOWED[kind].has(k)))
         throw Error("Unexpected fields in sync snapshot.");
+      if (kind === "sim" && ["source", "rateSource"].some(k =>
+        record[k] !== undefined &&
+        (typeof record[k] !== "string" || record[k].length > 40)))
+        throw Error("Invalid optional SIM source metadata.");
       if (seen.has(record.id) || validateRecord(kind, record, ledger, now))
         throw Error("Invalid or duplicate record in sync snapshot.");
       seen.add(record.id);
