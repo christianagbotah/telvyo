@@ -121,6 +121,7 @@ export function createGateway({
   env = process.env,
   fetchImpl = fetch,
   verifyToken,
+  consentCheck,
   now = Date.now,
   limit = 10,
 } = {}) {
@@ -130,7 +131,8 @@ export function createGateway({
     env.AUTH_AUDIENCE &&
     env.OPENAI_API_KEY &&
     env.OPENAI_MODEL &&
-    httpsURL(env.WEB_ORIGIN)
+    httpsURL(env.WEB_ORIGIN) &&
+    typeof consentCheck === "function"
   );
   const keys = configured
     ? createRemoteJWKSet(new URL(env.AUTH_JWKS_URL), {
@@ -203,6 +205,20 @@ export function createGateway({
     } catch (e) {
       return reply(400, { error: e.message });
     }
+    // Client-supplied consent: true is never enough to authorize cloud AI.
+    // Check the server-side, subject-bound latest consent on every request.
+    let allowed;
+    try {
+      allowed = await consentCheck(identity);
+    } catch {
+      return reply(503, {
+        error: "The consent service is temporarily unavailable.",
+      });
+    }
+    if (allowed !== true)
+      return reply(403, {
+        error: "Enable the current AI data-processing consent in your account.",
+      });
     const time = now();
     for (const [id, w] of windows) if (w.until <= time) windows.delete(id);
     const w = windows.get(identity.sub) || { count: 0, until: time + 60000 };

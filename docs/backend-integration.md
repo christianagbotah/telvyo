@@ -39,3 +39,18 @@ See [official carrier research](carrier-integration-research.md) for verified pr
 ## Before customer release
 
 Complete live contract testing with consented subscribers, authenticated account mapping and revocation, web/mobile login, shared rate limits, audit/monitoring and privacy review. Reconcile measured OS traffic with carrier-rated traffic without assuming they must match. Keep provenance and measurement timestamps visible, and test zero/stale/missing values, refunds, promotion rules, number portability and dual-SIM changes.
+
+## Private customer identity and consent foundation (not yet publicly activated)
+
+The server includes a consent API backed by PostgreSQL. It **requires valid OIDC issuer, JWKS, audience, a 32+ byte random `ACCOUNT_HASH_KEY`, an isolated PostgreSQL `ACCOUNT_DATABASE_URL`, and the migration at `server/migrations/001_privacy_consent.sql`. The deployment is **not connected** to a customer identity provider or published on the VPS. Never proxy these routes until those dependencies, TLS and real-token login are tested.
+
+The server derives a pseudonymous HMAC-SHA256 account key from the verified issuer and subject. Raw email, phone numbers and OIDC subjects are never written to the consent table. Only AI aggregate-processing consent can be granted with the server-recognized policy version `2026-11`. Carrier permission is never granted through this API; each network requires its separately approved subscriber-verification and consent flow.
+
+- `GET /v1/privacy`: signed-in customer's current AI consent status and clear data-provenance limits.
+- `POST /v1/privacy/ai-advisor`: explicit `{ "granted": true, "policyVersion": "2026-11" }` from a verified account.
+- `DELETE /v1/privacy/ai-advisor`: revokes AI processing consent immediately by appending a new event.
+- `DELETE /v1/privacy/records`: explicit `X-Telvyo-Confirm: DELETE_CLOUD_RECORDS` deletes the authenticated customer's server-side consent history only; it does **not** delete the identity-provider account or phone-local records.
+
+The advisor gateway now **fails closed** unless it has a server-side consent checker. It checks the authenticated account's *latest* consent and current policy version for every AI request; a client-supplied `consent: true` field is never sufficient. A missing PostgreSQL connection, missing identity configuration, absent consent or revoked/expired policy prevents provider access. The PostgreSQL store uses parameterized queries. Use a dedicated low-privilege DB role, transport encryption for remote DB hosts, protected backups, rotation planning for the HMAC key, and privacy/compliance review before live use.
+
+This foundation is not a complete sign-in flow or automatic carrier linking. Remaining: choose and configure an identity provider, implement PKCE on web/native clients and secure token lifecycle, deploy the database migration, obtain carrier approvals, add rate limits and monitor all customer consent transitions without recording sensitive payloads.

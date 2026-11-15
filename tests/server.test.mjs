@@ -76,6 +76,7 @@ test("unauthorized requests never call AI provider", async () => {
   let count = 0;
   const handler = createGateway({
     env,
+    consentCheck: async () => true,
     verifyToken: async () => {
       throw Error("bad token");
     },
@@ -90,6 +91,7 @@ test("consent, origin and aggregate-only fields are enforced", async () => {
   let count = 0;
   const handler = createGateway({
     env,
+    consentCheck: async () => true,
     verifyToken: async () => ({ sub: "u" }),
     fetchImpl: async () => {
       count++;
@@ -121,6 +123,7 @@ test("AI sends only approved aggregate context with storage disabled", async () 
   let sent;
   const handler = createGateway({
     env,
+    consentCheck: async () => true,
     verifyToken: async () => ({ sub: "u" }),
     fetchImpl: async (url, init) => {
       sent = { url, body: JSON.parse(init.body) };
@@ -148,6 +151,7 @@ test("AI sends only approved aggregate context with storage disabled", async () 
 test("provider errors are sanitized and user requests are bounded", async () => {
   const handler = createGateway({
     env,
+    consentCheck: async () => true,
     limit: 1,
     verifyToken: async () => ({ sub: "u" }),
     fetchImpl: async () => {
@@ -158,6 +162,32 @@ test("provider errors are sanitized and user requests are bounded", async () => 
   assert.equal(res.status, 502);
   assert.doesNotMatch(await res.text(), /test-secret/);
   assert.equal((await handler(request())).status, 429);
+});
+test("a valid JWT and client opt-in alone cannot authorize cloud AI", async () => {
+  let providerCalls = 0;
+  const unavailable = createGateway({
+    env,
+    verifyToken: async () => ({ sub: "u" }),
+    fetchImpl: async () => { providerCalls++; },
+  });
+  assert.equal((await unavailable(request())).status, 503);
+  const denied = createGateway({
+    env,
+    verifyToken: async () => ({ sub: "u" }),
+    consentCheck: async () => false,
+    fetchImpl: async () => { providerCalls++; },
+  });
+  assert.equal((await denied(request())).status, 403);
+  const failed = createGateway({
+    env,
+    verifyToken: async () => ({ sub: "u" }),
+    consentCheck: async () => { throw Error("private database password"); },
+    fetchImpl: async () => { providerCalls++; },
+  });
+  const response = await failed(request());
+  assert.equal(response.status, 503);
+  assert.doesNotMatch(await response.text(), /password/);
+  assert.equal(providerCalls, 0);
 });
 test("MTN OAuth uses the documented query and form credentials", async () => {
   let call;
