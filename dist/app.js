@@ -687,6 +687,96 @@ function validatedBackup(value) {
   }
   return x;
 }
+function compareBackupToLocal(current, incoming) {
+  const groups = [
+    ["sims", "SIM profiles"], ["purchases", "Purchases"],
+    ["usage", "Data usage"], ["calls", "Calls"],
+  ];
+  return groups.map(([key, label]) => {
+    const before = new Map(current[key].map(item => [item.id, item]));
+    const after = new Map(incoming[key].map(item => [item.id, item]));
+    const added = incoming[key].filter(item => !before.has(item.id)).length;
+    const removed = current[key].filter(item => !after.has(item.id)).length;
+    const changed = incoming[key].filter(item => before.has(item.id) &&
+      JSON.stringify(before.get(item.id)) !== JSON.stringify(item)).length;
+    return { label, existing: before.size, incoming: after.size,
+      added, removed, changed };
+  });
+}
+
+function showRestoreReview(preview) {
+  const rows = compareBackupToLocal(state, preview.ledger);
+  const totals = rows.reduce((sum, item) => ({
+    added:sum.added+item.added, removed:sum.removed+item.removed,
+    changed:sum.changed+item.changed,
+  }), {added:0,removed:0,changed:0});
+  openModal(
+    `${modalHeader("Review backup replacement", "Nothing has been changed yet. Check the differences before choosing to replace local data.")}
+    <form id="restore-form">
+      <div class="restore-review" role="table" aria-label="Local and backup record comparison">
+        <div class="restore-review-row restore-review-heading" role="row">
+          <span role="columnheader">Record type</span><span role="columnheader">On device</span><span role="columnheader">Backup</span><span role="columnheader">Will change</span>
+        </div>
+        ${rows.map(row => `<div class="restore-review-row" role="row">
+          <strong role="cell">${row.label}</strong><span role="cell">${row.existing}</span>
+          <span role="cell">${row.incoming}</span>
+          <span role="cell">+${row.added} / −${row.removed} / ~${row.changed}</span>
+        </div>`).join("")}
+      </div>
+      <div class="info-box"><strong>Replacing, not merging.</strong>
+        ${totals.removed} existing entries will be removed, ${totals.changed} will be changed, and ${totals.added} backup-only entries will be added.
+        Your current SIM settings and personal history will be replaced in this workspace.
+        The other workspace stays unchanged. Export a fresh backup of your current records before continuing.
+      </div>
+      <div class="field full"><label for="restore-confirmation">Type RESTORE to confirm replacement</label>
+        <input name="confirmation" id="restore-confirmation" type="text" maxlength="7" autocomplete="off"
+          autocapitalize="characters" spellcheck="false" placeholder="RESTORE"
+          aria-describedby="restore-safety" required>
+      </div>
+      <p class="field-note" id="restore-safety">A backup is not a verified carrier record. This action cannot automatically undo replacements.</p>
+      <p id="restore-error" class="form-error" role="alert" aria-live="polite"></p>
+      <div class="modal-footer"><button type="button" class="secondary-btn" data-action="close">Cancel</button>
+        <button type="submit" class="primary-btn danger-btn">Replace my local data</button></div>
+    </form>`,
+    true,
+  );
+  modal.querySelector("#restore-confirmation")?.focus();
+}
+
+function applyReviewedRestore(confirmation) {
+  const error = modal.querySelector("#restore-error");
+  if (!pendingRestore || confirmation !== "RESTORE") {
+    if (error) error.textContent = "Type RESTORE exactly to confirm.";
+    return false;
+  }
+  if (pendingRestore.workspace !== mode || pendingRestore.previousState !== state) {
+    if (error) error.textContent = "Your workspace has changed since the preview. Choose the backup again.";
+    return false;
+  }
+  // Persist FIRST. A storage failure never silently overwrites in-memory
+  // personal records or announces that the restore succeeded.
+  const key = `telco.${mode}.v1`;
+  const serialized = JSON.stringify(pendingRestore.ledger);
+  try {
+    localStorage.setItem(key, serialized);
+    if (localStorage.getItem(key) !== serialized)
+      throw Error("The restored data could not be verified in device storage.");
+  } catch {
+    storageIssue = true;
+    if (error) error.textContent = "Device storage could not save this backup. Your current in-app records have not been replaced. Check storage permissions before retrying.";
+    return false;
+  }
+  state = pendingRestore.ledger;
+  memoryStates[mode] = state;
+  simId = "all";
+  connected.clearSession();
+  pendingRestore = null;
+  closeModal();
+  render();
+  toast("Backup restored to this device.");
+  return true;
+}
+
 function importBackup() {
   const input = document.createElement("input");
   input.type = "file";
@@ -701,18 +791,15 @@ function importBackup() {
     try {
       const parsed = JSON.parse(await file.text());
       const backupMode = parsed.workspace;
+      if (backupMode && !["personal", "demo"].includes(backupMode))
+        throw Error("This backup has an unknown workspace label.");
       if (backupMode && backupMode !== mode)
         throw Error(
-          `Switch to the ${backupMode === "demo" ? "demo" : "personal"} workspace before restoring this backup.`,
+          `Switch to the ${backupMode} workspace before restoring this backup.`,
         );
-      pendingRestore = validatedBackup(parsed);
-      confirmAction(
-        "Restore this backup?",
-        `This will replace your ${mode === "demo" ? "demo" : "personal"} workspace with ${pendingRestore.purchases.length} purchases, ${pendingRestore.usage.length} usage records and ${pendingRestore.calls.length} calls. Export your current records first if you need to keep them.`,
-        "Restore backup",
-        "confirm-restore",
-        true,
-      );
+      const ledger = validatedBackup(parsed);
+      pendingRestore = { ledger, workspace: mode, previousState: state };
+      showRestoreReview(pendingRestore);
     } catch (e) {
       toast(e.message || "The backup could not be read.");
     }
@@ -826,17 +913,7 @@ document.addEventListener("click", async (e) => {
       "application/json",
     );
   else if (action === "import") importBackup();
-  else if (action === "confirm-restore") {
-    const persisted = save(pendingRestore);
-    pendingRestore = null;
-    closeModal();
-    render();
-    toast(
-      persisted
-        ? "Backup restored."
-        : "Restored in memory only. Storage unavailable.",
-    );
-  } else if (action === "reset")
+  else if (action === "reset")
     confirmAction(
       mode === "demo"
         ? "Reset the sample workspace?"
@@ -939,6 +1016,10 @@ modal.addEventListener("submit", (e) => {
     fd = new FormData(form);
   if (form.id === "erase-local-form") {
     eraseLocalData(fd.get("confirmation"));
+    return;
+  }
+  if (form.id === "restore-form") {
+    applyReviewedRestore(fd.get("confirmation"));
     return;
   }
   let kind, record;
