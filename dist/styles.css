@@ -720,3 +720,21 @@ dialog { border-color: #e3e2d8; }
 #erase-local-form .form-error:empty{display:none}
 #erase-local-form .modal-footer{flex-wrap:wrap}
 #erase-local-form .danger-btn{white-space:normal;text-align:center}
+
+/* Manual-only, per-SIM daily budget status. No push notification claims. */
+.budget-panel{margin-bottom:22px}
+.budget-panel .card-heading h2{display:flex;align-items:center;gap:7px}
+.budget-panel .card-heading h2 .icon{width:17px;height:17px}
+.budget-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.budget-item{padding:15px;background:#f7f6f2;border:1px solid #e5e3db;border-radius:13px;min-width:0}
+.budget-item-top{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}
+.budget-item-top span{color:#626b74}
+.budget-item-top strong{font-weight:650}
+.budget-track{margin:12px 0 9px;height:9px;overflow:hidden;border-radius:9px;background:#e5e3db}
+.budget-track span{display:block;height:100%;border-radius:9px;background:#202a35;transition:width .2s ease}
+.budget-item.approaching .budget-track span{background:#b67c00}
+.budget-item.reached .budget-track span{background:#b31a2e}
+.budget-item p{font-size:12px;line-height:1.5;color:#626b74;margin:0}
+.budget-item.reached p{color:#912038}
+@media(max-width:760px){.budget-items{grid-template-columns:1fr}.budget-item{padding:13px}}
+@media(prefers-reduced-motion:reduce){.budget-track span{transition:none}}

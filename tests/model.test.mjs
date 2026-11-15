@@ -7,6 +7,7 @@ import {
   addRecord,
   filterRecords,
   summarize,
+  dailyBudgetAlerts,
   callCharge,
   toCSV,
 } from "../dist/model.js";
@@ -409,4 +410,50 @@ test("JSON persistence round trips preserve summaries and can be edited independ
   );
   assert.equal(updated.calls.length, state.calls.length + 1);
   assert.equal(restored.calls.length, state.calls.length);
+});
+
+test("daily manual budget warnings switch at 80% and 100% without mixing SIMs", () => {
+  const state = createEmpty();
+  state.sims[0].dailyLimitMB = 1000;
+  state.sims[1].dailyLimitMB = 500;
+  const update = (mb) => {
+    state.usage = [usage({ mb }), usage({
+      id: "u2", simId: "telecel", mb: 25, app: "Other",
+    })];
+  };
+  update(799);
+  let alerts = dailyBudgetAlerts(state, NOW);
+  assert.equal(alerts.find(a => a.simId === "mtn").status, "within");
+  assert.equal(alerts.find(a => a.simId === "mtn").remainingMB, 201);
+  assert.equal(alerts.find(a => a.simId === "telecel").status, "within");
+  update(800);
+  alerts = dailyBudgetAlerts(state, NOW);
+  assert.equal(alerts[0].status, "approaching");
+  assert.equal(alerts[0].percentUsed, 80);
+  update(1000);
+  alerts = dailyBudgetAlerts(state, NOW);
+  assert.equal(alerts[0].status, "reached");
+  assert.equal(alerts[0].percentUsed, 100);
+  assert.equal(alerts[0].exceededMB, 0);
+  update(1200);
+  alerts = dailyBudgetAlerts(state, NOW);
+  assert.equal(alerts[0].status, "reached");
+  assert.equal(alerts[0].exceededMB, 200);
+  assert.equal(alerts[0].remainingMB, 0);
+  assert.deepEqual(dailyBudgetAlerts({ ...createEmpty(), sims: [] }, NOW), []);
+});
+
+test("daily budget calculations ignore old entries and future or invalid records", () => {
+  const state = createEmpty();
+  state.sims[0].dailyLimitMB = 100;
+  state.usage = [
+    usage({ id: "old", mb: 1000, timestamp: stamp(13) }),
+    usage({ id: "future", mb: 1000, timestamp: stamp(15) }),
+    usage({ id: "bad", mb: -500 }),
+    usage({ id: "today", mb: 82 }),
+  ];
+  const alert = dailyBudgetAlerts(state, NOW).find(a => a.simId === "mtn");
+  assert.equal(alert.usedMB, 82);
+  assert.equal(alert.status, "approaching");
+  assert.equal(alert.remainingMB, 18);
 });

@@ -394,6 +394,38 @@ export function summarize(
   };
 }
 
+/**
+ * In-app daily budget check based ONLY on validated, manually logged usage.
+ * This is not carrier-rated consumption, a push notification or a SIM-specific
+ * Android network measurement.
+ */
+export function dailyBudgetAlerts(state, now = Date.now()) {
+  now = validClock(now);
+  const sims = Array.isArray(state?.sims) ? state.sims : [];
+  const priority = { reached: 2, approaching: 1, within: 0, unconfigured: -1 };
+  return sims.map((sim) => {
+    const limitMB = sim.dailyLimitMB;
+    const usedMB = summarize(state, { simId: sim.id, days: 1, now }).dataUsedMB;
+    const validLimit = isNumber(limitMB) && limitMB > 0;
+    const ratio = validLimit ? usedMB / limitMB : 0;
+    const status = !validLimit ? "unconfigured" : ratio >= 1
+      ? "reached" : ratio >= 0.8 ? "approaching" : "within";
+    return {
+      simId: sim.id,
+      carrier: sim.carrier,
+      label: sim.label,
+      slot: sim.slot,
+      usedMB,
+      limitMB: validLimit ? limitMB : null,
+      remainingMB: validLimit ? round(Math.max(0, limitMB - usedMB), 6) : null,
+      exceededMB: validLimit ? round(Math.max(0, usedMB - limitMB), 6) : null,
+      percentUsed: validLimit ? round(ratio * 100, 1) : null,
+      status,
+    };
+  }).sort((a, b) => priority[b.status] - priority[a.status] ||
+    (b.percentUsed ?? 0) - (a.percentUsed ?? 0));
+}
+
 export function callCharge(seconds, rate) {
   if (!nonnegative(seconds) || !nonnegative(rate))
     throw new Error(
