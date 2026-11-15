@@ -81,6 +81,18 @@ assert.match($("#restore-error").textContent,/could not save this backup/);
 assert.deepEqual(stored(),original,"Failure must not overwrite current local data");
 window.Storage.prototype.setItem=set;
 
+// A write that succeeded but fails verification must be rolled back.
+const get = window.Storage.prototype.getItem;
+let checked = 0;
+window.Storage.prototype.getItem=function(key){
+  if(key==="telco.personal.v1" && ++checked===2)return "unverified";
+  return get.call(this,key);
+};
+submit();
+window.Storage.prototype.getItem=get;
+assert.match($("#restore-error").textContent,/could not save this backup/);
+assert.deepEqual(stored(),original,"Unverified writes must roll back to current data");
+
 submit();
 assert.equal($("#modal").open,false);
 assert.deepEqual(stored(),incoming);
