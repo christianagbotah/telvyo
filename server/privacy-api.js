@@ -1,7 +1,9 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { verifyAccessToken } from "./gateway.js";
+import { syncEncryptionKey } from "./sync-crypto.js";
 
 export const CURRENT_AI_CONSENT_VERSION = "2026-11";
+export const CURRENT_SYNC_CONSENT_VERSION = "2026-11";
 const PURPOSE = "ai-advisor";
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
@@ -75,6 +77,7 @@ async function limitedJSON(request) {
 export function createPrivacyAPI({
   env = process.env,
   repository = null,
+  syncRepository = null,
   verifyToken = (token) => verifyAccessToken(token, env),
 } = {}) {
   const configured = !!(
@@ -82,6 +85,12 @@ export function createPrivacyAPI({
     validHttps(env.AUTH_JWKS_URL) && validHttps(env.AUTH_ISSUER) &&
     validHttps(env.WEB_ORIGIN) && typeof env.AUTH_AUDIENCE === "string" &&
     env.AUTH_AUDIENCE.trim() && Buffer.byteLength(env.ACCOUNT_HASH_KEY || "") >= 32
+  );
+
+  let encryptionReady = false;
+  try { syncEncryptionKey(env); encryptionReady = true; } catch { /* fail closed */ }
+  const syncReady = configured && encryptionReady && !!(
+    syncRepository?.clear && syncRepository?.get && syncRepository?.save
   );
 
   return async function handlePrivacy(request) {
@@ -113,6 +122,7 @@ export function createPrivacyAPI({
     const routeMethods = {
       "/v1/privacy": ["GET"],
       "/v1/privacy/ai-advisor": ["POST", "DELETE"],
+      "/v1/privacy/cloud-sync": ["POST", "DELETE"],
       "/v1/privacy/records": ["DELETE"],
     };
     if (!Object.hasOwn(routeMethods, path))
@@ -139,14 +149,25 @@ export function createPrivacyAPI({
     try {
       if (path === "/v1/privacy" && request.method === "GET") {
         const saved = await repository.latest(accountKey, PURPOSE);
+        const syncStatus = await repository.latest(accountKey, "cloud-sync");
         return respond(200, {
           accountConnected: true,
-          storedData: "Cloud consent history only; local device records are separate.",
+          storedData: syncReady
+            ? "Cloud consent history and optional encrypted sync snapshot; device records remain separate."
+            : "Cloud consent history only; local device records are separate.",
           aiAdvisor: {
             granted: saved?.granted === true,
             policyVersion: saved?.policyVersion || null,
             updatedAt: saved?.at || null,
             activePolicyVersion: CURRENT_AI_CONSENT_VERSION,
+          },
+          cloudSync: {
+            available: syncReady,
+            granted: syncReady && syncStatus?.granted === true &&
+              syncStatus.policyVersion === CURRENT_SYNC_CONSENT_VERSION,
+            policyVersion: syncStatus?.policyVersion || null,
+            updatedAt: syncStatus?.at || null,
+            activePolicyVersion: CURRENT_SYNC_CONSENT_VERSION,
           },
           carrierSubscriberAccess: "not-authorized",
         });
@@ -175,12 +196,43 @@ export function createPrivacyAPI({
         );
         return respond(200, { granted: false, recordedAt: saved.at });
       }
+      if (path === "/v1/privacy/cloud-sync" && request.method === "POST") {
+        if (!syncReady)
+          return respond(503, { error: "Encrypted sync is not configured." });
+        let data;
+        try { data = await limitedJSON(request); }
+        catch (error) { return respond(400, { error: error.message }); }
+        if (Object.keys(data).sort().join(",") !== "granted,policyVersion" ||
+            data.granted !== true ||
+            data.policyVersion !== CURRENT_SYNC_CONSENT_VERSION)
+          return respond(400, {
+            error: "Explicit opt-in to the current cloud sync policy is required.",
+          });
+        const saved = await repository.append(accountKey, "cloud-sync", true,
+          CURRENT_SYNC_CONSENT_VERSION);
+        return respond(200, { granted: true, recordedAt: saved.at });
+      }
+      if (path === "/v1/privacy/cloud-sync" && request.method === "DELETE") {
+        if (!syncRepository?.clear)
+          return respond(503, { error: "Encrypted sync records are unavailable." });
+        // Clear the ciphertext BEFORE revoking: a failed delete must not
+        // falsely claim that cloud data has been removed.
+        await syncRepository.clear(accountKey);
+        const saved = await repository.append(accountKey, "cloud-sync", false,
+          CURRENT_SYNC_CONSENT_VERSION);
+        return respond(200, { granted: false, cloudSyncDataDeleted: true,
+          recordedAt: saved.at, localDeviceRecordsDeleted: false });
+      }
       if (path === "/v1/privacy/records" && request.method === "DELETE") {
         if (request.headers.get("x-telvyo-confirm") !== "DELETE_CLOUD_RECORDS")
           return respond(400, { error: "Confirm deletion of cloud consent records." });
+        // Always clear available encrypted snapshots before consent history.
+        // Tombstone retains only pseudonymous key/revision to stop stale reuploads.
+        if (syncRepository?.clear) await syncRepository.clear(accountKey);
         await repository.clear(accountKey);
         return respond(200, {
           cloudConsentRecordsDeleted: true,
+          cloudSyncDataDeleted: Boolean(syncRepository?.clear),
           identityProviderAccountDeleted: false,
           localDeviceRecordsDeleted: false,
         });
