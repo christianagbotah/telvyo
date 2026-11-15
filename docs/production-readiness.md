@@ -13,7 +13,7 @@
 | Local data privacy & removal | Full personal-workspace erase with explicit typed confirmation, storage-failure handling and demo isolation implemented | Browser and physical-device verification; exported backups/OS permissions are independent |
 | Manual bundle expiry reminders | Optional user-recorded expiry with in-app warnings (72h upcoming, 7d recent), backup/CSV compatibility, and explicit source limitations | Verify timezone behavior and mobile UI; no auto-expiry deduction or carrier verification |
 | Monthly spending budgets | Per-SIM optional cash limits and local-calendar comparison of manual data/airtime purchases, 80/100% warnings, demo isolation | Real-device/timezone verification; no double-counted prepaid calls, no claim of financial reconciliation |
-| Secure cross-device sync foundation | Private AES-256-GCM snapshot backend with signed JWT, distinct consent, HMAC account keys, CAS revisions, PostgreSQL migration, erasure tombstone and tests | **Not live:** OIDC/PKCE clients, consent UI, cross-device resolution, production DB/key custody, consent/revoke race review, rate limiting, real-device QA and privacy policy |
+| Secure cross-device sync foundation | Private AES-256-GCM snapshots, signed JWT, separate consent, HMAC identity, CAS revisions, deletion tombstone, and transaction-serialized consent/write/revoke/delete with PostgreSQL race regression | **Not live:** OIDC/PKCE clients, consent UI, cross-device resolution, production DB/key custody, rate limiting, full security/privacy review and real-device QA |
 | Browser security headers | CSP, nosniff, referrer and permissions policy prepared | Response-header smoke tests on production HTTPS domain |
 | Carrier subscriber balances/charges | **Blocked: no approved live integration** | Carrier contract, production credentials, verified owner/consent, mapping and field-by-field reconciliation |
 | MTN Ghana | Application-authentication test only; no subscriber API authorization | MTN production product approval, country/usage enums and consented test subscriber results |
@@ -41,3 +41,5 @@
 - AppDeploy can be used for a separate future staging build after an architecture migration is explicitly designed; team-wide plugin availability is controlled by the ChatGPT workspace administrator.
 
 See also [release requirements](release-requirements.md), [backend integration](backend-integration.md), and [verification](verification.md).
+
+- **Backup replacement review:** local JSON restore now previews differences and requires typed `RESTORE`, keeps personal/demo workspaces separate, and fails closed on storage errors. See [restore safety](restore-safety.md). Real browser/Android file-picker and accessibility sign-off remains pending.
