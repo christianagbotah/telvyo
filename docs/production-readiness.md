@@ -12,6 +12,7 @@
 | Web offline launch | Public-only static asset service worker and tests prepared | Install/update/offline smoke tests in Chrome and Safari, no admin/API caching |
 | Local data privacy & removal | Full personal-workspace erase with explicit typed confirmation, storage-failure handling and demo isolation implemented | Browser and physical-device verification; exported backups/OS permissions are independent |
 | Manual bundle expiry reminders | Optional user-recorded expiry with in-app warnings (72h upcoming, 7d recent), backup/CSV compatibility, and explicit source limitations | Verify timezone behavior and mobile UI; no auto-expiry deduction or carrier verification |
+| Monthly spending budgets | Per-SIM optional cash limits and local-calendar comparison of manual data/airtime purchases, 80/100% warnings, demo isolation | Real-device/timezone verification; no double-counted prepaid calls, no claim of financial reconciliation |
 | Browser security headers | CSP, nosniff, referrer and permissions policy prepared | Response-header smoke tests on production HTTPS domain |
 | Carrier subscriber balances/charges | **Blocked: no approved live integration** | Carrier contract, production credentials, verified owner/consent, mapping and field-by-field reconciliation |
 | MTN Ghana | Application-authentication test only; no subscriber API authorization | MTN production product approval, country/usage enums and consented test subscriber results |
