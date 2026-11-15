@@ -61,7 +61,7 @@ assert.equal(localStorage.getItem("telco.personal.v1"), null);
 assert.equal(localStorage.getItem("telco.demo.v1"), JSON.stringify(demoData));
 assert.equal(localStorage.getItem("telco.mode"), "personal");
 assert.equal(document.querySelectorAll(".sim-item").length, 0);
-assert.match(document.body.textContent, /Your networks/);
+assert.match(document.body.textContent, /Choose the right SIM for each record/);
 assert.equal($("#modal").open, false);
 
 click('[data-page="settings"]');
@@ -69,6 +69,7 @@ assert.equal($('[data-action="erase-local"]').disabled, false);
 click('[data-action="switch-mode"]');
 click('[data-action="confirm-switch"]');
 assert.equal(localStorage.getItem("telco.mode"), "demo");
+click('[data-page="settings"]');
 assert.equal($('[data-action="erase-local"]').disabled, true);
 assert.match(document.body.textContent, /Demo workspace/);
 assert.equal(localStorage.getItem("telco.demo.v1"), JSON.stringify(demoData));
