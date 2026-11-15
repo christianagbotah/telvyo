@@ -239,6 +239,15 @@ export function validateRecord(kind, record, state, now = Date.now()) {
       return "The purchased amount must be greater than zero.";
     if (!nonnegative(record.cost))
       return "The purchase cost must be a finite number of zero or more.";
+    // Legacy purchases have no expiry field and continue to be valid.
+    // Only a user-confirmed data bundle can carry a recorded expiry.
+    if (record.expiresAt !== undefined) {
+      if (record.type !== "data")
+        return "Only data bundles can have a recorded expiry.";
+      const expires = timestampValue(record.expiresAt);
+      if (!Number.isFinite(expires) || expires <= timestamp)
+        return "The expiry must be a valid date and time after the purchase.";
+    }
   } else if (kind === "usage") {
     if (!validName(record.app))
       return "Enter an app name of up to 80 characters.";
@@ -469,6 +478,52 @@ export function compareBundlePurchases(
   };
 }
 
+/**
+ * Optional in-app reminder for manually recorded bundle expiry times.
+ * No carrier verification, automatic balance adjustment or push notification.
+ * Past alerts are displayed for seven days; future alerts within 72 hours.
+ */
+export function bundleExpiryWatch(
+  state,
+  { simId = "all", now = Date.now() } = {},
+) {
+  now = validClock(now);
+  const ledger = {
+    ...state,
+    sims: Array.isArray(state?.sims) ? state.sims : [],
+    purchases: Array.isArray(state?.purchases) ? state.purchases : [],
+    usage: Array.isArray(state?.usage) ? state.usage : [],
+    calls: Array.isArray(state?.calls) ? state.calls : [],
+  };
+  const windowAhead = 72 * 3600000;
+  const windowBehind = 7 * 86400000;
+  const soon = [];
+  const recentlyExpired = [];
+  for (const record of ledger.purchases) {
+    if (record?.type !== "data" || record.expiresAt === undefined ||
+        (simId !== "all" && record.simId !== simId) ||
+        validateRecord("purchase", record, ledger, now) !== null) continue;
+    const expiry = timestampValue(record.expiresAt);
+    const delta = expiry - now;
+    if (delta > windowAhead || delta < -windowBehind) continue;
+    const sim = ledger.sims.find((item) => item.id === record.simId);
+    const item = {
+      purchaseId: record.id,
+      simId: record.simId,
+      carrier: sim?.carrier ?? "SIM",
+      slot: sim?.slot ?? null,
+      amountMB: record.amount,
+      expiresAt: record.expiresAt,
+      hoursUntilExpiry: Math.max(0, Math.ceil(delta / 3600000)),
+      status: delta <= 0 ? "expired" : "soon",
+    };
+    (delta <= 0 ? recentlyExpired : soon).push(item);
+  }
+  soon.sort((a, b) => a.expiresAt.localeCompare(b.expiresAt) || a.purchaseId.localeCompare(b.purchaseId));
+  recentlyExpired.sort((a, b) => b.expiresAt.localeCompare(a.expiresAt) || a.purchaseId.localeCompare(b.purchaseId));
+  return { soon, recentlyExpired };
+}
+
 export function dailyBudgetAlerts(state, now = Date.now()) {
   now = validClock(now);
   const sims = Array.isArray(state?.sims) ? state.sims : [];
@@ -525,6 +580,7 @@ export function toCSV(state, options = {}) {
     "duration_seconds",
     "cost_ghs",
     "background",
+    "recorded_expiry",
     "source",
   ];
   const entries = [
@@ -566,6 +622,7 @@ export function toCSV(state, options = {}) {
       kind === "call" ? record.duration : "",
       kind === "usage" ? "" : record.cost,
       kind === "usage" ? record.background : "",
+      kind === "purchase" && record.type === "data" ? record.expiresAt ?? "" : "",
       source,
     ];
   });
