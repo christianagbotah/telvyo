@@ -89,9 +89,11 @@ export function createPrivacyAPI({
 
   let encryptionReady = false;
   try { syncEncryptionKey(env); encryptionReady = true; } catch { /* fail closed */ }
-  const syncReady = configured && encryptionReady && !!(
-    syncRepository?.clear && syncRepository?.get && syncRepository?.save && syncRepository?.withAccountLock
+  const syncStorageReady = configured && !!(
+    syncRepository?.clear && syncRepository?.get && syncRepository?.save &&
+    syncRepository?.withAccountLock
   );
+  const syncReady = syncStorageReady && encryptionReady;
 
   return async function handlePrivacy(request) {
     const requestId = randomUUID();
@@ -214,7 +216,9 @@ export function createPrivacyAPI({
         return respond(200, { granted: true, recordedAt: saved.at });
       }
       if (path === "/v1/privacy/cloud-sync" && request.method === "DELETE") {
-        if (!syncReady)
+        // Deleting ciphertext must NOT depend on having the encryption key.
+        // Users can still revoke and erase snapshots after a key outage.
+        if (!syncStorageReady)
           return respond(503, { error: "Encrypted sync records are unavailable." });
         // A snapshot save can no longer commit after this revocation commits:
         // the two operations acquire the same account transaction lock.
@@ -232,7 +236,7 @@ export function createPrivacyAPI({
           return respond(400, { error: "Confirm deletion of cloud consent records." });
         // Both erasure operations MUST succeed in one transaction; never clear
         // the permission history while a private ciphertext could remain.
-        if (syncReady) {
+        if (syncStorageReady) {
           await syncRepository.withAccountLock(accountKey,
             async ({ sync, consent }) => {
               await sync.clear(accountKey);
@@ -247,7 +251,7 @@ export function createPrivacyAPI({
         }
         return respond(200, {
           cloudConsentRecordsDeleted: true,
-          cloudSyncDataDeleted: syncReady,
+          cloudSyncDataDeleted: syncStorageReady,
           identityProviderAccountDeleted: false,
           localDeviceRecordsDeleted: false,
         });
