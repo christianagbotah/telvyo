@@ -27,7 +27,7 @@ npm run run:android
 ./gradlew assembleDebug
 ```
 
-The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Use Android Studio's signed bundle/APK workflow for a release. Create and securely retain your own signing key; do not put keystores or passwords in source control. The project does not include release signing credentials.
+The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Successful GitHub Actions runs now retain that APK for seven days as an **internal QA artifact**. Testers can download it from the matching GitHub Actions run and follow the [physical-device acceptance checklist](../docs/android-internal-qa.md). This is a debug-signed test build, not a Play Store release or a permanent public installer. Use Android Studio's signed bundle/APK workflow for a release. Create and securely retain your own signing key; do not put keystores or passwords in source control. The project does not include release signing credentials.
 
 The manifest declares Internet, READ_PHONE_STATE and PACKAGE_USAGE_STATS. Phone permission is requested at runtime for SIM discovery; Usage Access is granted separately in Android settings. No phone-number, call-log, contacts, SMS, location or broad installed-package permission is requested. Android cloud backup/device transfer are excluded in the manifest/data-extraction rules. See [native implementation](../docs/android-telemetry.md) for measurement scope, lifecycle behavior and tests.
 
