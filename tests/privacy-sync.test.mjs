@@ -83,7 +83,7 @@ test("cloud sync consent is separate from AI consent and requires explicit curre
   data=await (await api(req("/v1/privacy"))).json();
   assert.equal(data.cloudSync.granted,true);
   assert.equal(data.aiAdvisor.granted,false);
-  assert.equal((await (await api(req("/v1/privacy",{method:"GET"}))).json()).cloudSync.granted,true);
+  assert.equal((await (await api(req("/v1/privacy","GET"))).json()).cloudSync.granted,true);
   assert.equal((await (await api(req("/v1/privacy","GET",{token:"bob"}))).json()).cloudSync.granted,false);
 });
 
