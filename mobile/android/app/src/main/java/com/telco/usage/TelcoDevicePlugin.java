@@ -54,7 +54,10 @@ public class TelcoDevicePlugin extends Plugin {
     public void getCapabilities(PluginCall call) {
         JSObject result = new JSObject();
         result.put("platform", "android");
-        result.put("simDetection", true);
+        result.put("androidApiLevel", Build.VERSION.SDK_INT);
+        result.put("simDetection", getContext().getPackageManager()
+            .hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+        result.put("mobileUsageSupported", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q);
         result.put("usageAccess", hasUsageAccess());
         PermissionState permission = getPermissionState("phone");
         result.put("phonePermission", permission == PermissionState.GRANTED ? "granted" :
