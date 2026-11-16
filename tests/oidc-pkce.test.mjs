@@ -136,6 +136,7 @@ test("mismatched state, wrong issuer, duplicates and provider errors are rejecte
     c=>c.searchParams.set("iss","https://attacker.test"),
     c=>c.searchParams.set("error","access_denied"),
     c=>c.searchParams.set("code","contains space"),
+    c=>{c.hash="#access_token=unsafe";},
     c=>c.searchParams.delete("code"),
     c=>c.searchParams.set("scope","admin"),
   ]){
