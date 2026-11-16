@@ -164,10 +164,13 @@ export function createManualSyncClient({
   async function upload(previewState,currentLocal,{confirmation}={}) {
     if (confirmation !== UPLOAD_PROMPT)
       throw new SyncReviewError(`Type ${UPLOAD_PROMPT} before replacing the cloud copy.`);
-    await checkPreview(previewState,currentLocal);
-    validateReviewLedger(currentLocal,now());
+    // Freeze the submit decision to one independent snapshot before any
+    // async token or network step can observe a later UI mutation.
+    const submission = structuredClone(currentLocal);
+    await checkPreview(previewState,submission);
+    validateReviewLedger(submission,now());
     const result = await request("PUT","/v1/sync",{
-      expectedRevision:previewState.revision, ledger:currentLocal,
+      expectedRevision:previewState.revision, ledger:submission,
     });
     if (result.saved !== true || result.revision !== previewState.revision + 1)
       throw new SyncReviewError("Cloud sync did not confirm the new revision.");
