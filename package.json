@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/app.js && node --check dist/model.js && node --check dist/device.js && node --check dist/connected-views.js && node --check dist/insights.js && node --check server/privacy-api.js && node --check server/privacy-store.js && node --check server/gateway.js && node --check server/mtn.js && node --check server/index.js && node --check worker/index.js && node --check worker/admin.js && node --check admin/admin.js && node --check scripts/check-mtn-token.mjs && node --check server/sync-api.js && node --check server/sync-store.js && node --check server/sync-records.js && node --check server/sync-crypto.js",
+    "check": "node --check dist/app.js && node --check dist/model.js && node --check dist/device.js && node --check dist/connected-views.js && node --check dist/insights.js && node --check server/privacy-api.js && node --check server/privacy-store.js && node --check server/gateway.js && node --check server/mtn.js && node --check server/index.js && node --check worker/index.js && node --check worker/admin.js && node --check admin/admin.js && node --check scripts/check-mtn-token.mjs && node --check server/sync-api.js && node --check server/sync-store.js && node --check server/sync-records.js && node --check server/sync-crypto.js && node --check client/sync-review.js && node --check client/manual-sync.js",
     "build:hosted": "node scripts/build-hosted.mjs",
     "verify:hosted": "node scripts/verify-hosted.mjs"
   },
