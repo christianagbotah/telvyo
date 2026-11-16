@@ -24,7 +24,8 @@ export function createConnectedFeatures(ctx) {
     error = "",
     answer = "",
     deviceDays = 7,
-    lastRefresh = 0;
+    lastRefresh = 0,
+    lastPermissionCheck = 0;
   const actions = new Set([
     "detect-sims",
     "use-detected",
@@ -33,6 +34,7 @@ export function createConnectedFeatures(ctx) {
     "carrier-details",
     "advisor-prompt",
     "clear-device",
+    "check-device",
   ]);
   const carrierInfo = {
     mtn: {
@@ -89,11 +91,74 @@ export function createConnectedFeatures(ctx) {
       )
       .join("")}</div>`;
   }
+  function renderReadiness() {
+    const native = client.supported;
+    const apiLevel = capabilities?.androidApiLevel;
+    const phone = !native ? "Android native app required"
+      : !capabilities ? "Not checked"
+      : capabilities.simDetection === false ? "Device has no supported telephony"
+      : capabilities.phonePermission === "granted" ? "Permission granted"
+      : capabilities.phonePermission === "denied" ? "Permission denied"
+      : "Permission not yet granted";
+    const mobile = !native ? "Android native app required"
+      : !capabilities ? "Not checked"
+      : capabilities.mobileUsageSupported === false ? "Android 10+ required"
+      : capabilities.usageAccess ? "Usage access granted"
+      : "Usage access not granted";
+    const phoneReady = native && capabilities?.simDetection !== false &&
+      capabilities?.phonePermission === "granted";
+    const usageReady = native && capabilities?.mobileUsageSupported !== false &&
+      capabilities?.usageAccess === true;
+    return `<section class="card device-readiness" aria-label="Device readiness checks">
+      <div class="card-heading"><h2>${icon("shield")} Device readiness</h2>
+        <button class="secondary-btn" type="button" data-action="check-device"
+          ${busy || !native || getMode() === "demo" ? "disabled" : ""}>
+          ${icon("refresh")}${busy === "check" ? "Checking…" : "Check permissions"}
+        </button></div>
+      <p class="card-sub">Checks your phone's permission status without requesting access, scanning SIMs or measuring data. Nothing is uploaded.</p>
+      <div class="device-readiness-grid">
+        <div class="device-readiness-item"><strong>SIM discovery</strong>
+          <span class="status-chip ${phoneReady ? "connected" : "pending"}">${esc(phone)}</span>
+          <small>${phoneReady ? "You can choose Detect my SIMs below." : "Choose Detect my SIMs to request Phone permission only when needed."}</small></div>
+        <div class="device-readiness-item"><strong>Mobile usage</strong>
+          <span class="status-chip ${usageReady ? "connected" : "pending"}">${esc(mobile)}</span>
+          <small>${capabilities?.mobileUsageSupported === false && native ? "This Android version cannot use Telvyo's all-mobile NetworkStats query." : "Use Android Usage access settings below; returning here will recheck access."}</small></div>
+      </div>
+      <p class="metric-evidence">Platform: ${native ? "Android" : "Browser / unsupported native platform"}${Number.isInteger(apiLevel) ? " · API " + apiLevel : ""} · ${lastPermissionCheck ? "Last checked: " + esc(new Date(lastPermissionCheck).toLocaleString()) : "Not checked yet"}.</p>
+      <p class="metric-evidence">This is an app capability check, not a carrier connection test or proof of correct usage totals. Android permission changes can invalidate earlier measurements.</p>
+    </section>`;
+  }
+  async function recheckPermissions({ refreshExistingUsage = false } = {}) {
+    const next = await client.capabilities();
+    capabilities = next;
+    lastPermissionCheck = Date.now();
+    if (next.phonePermission !== "granted" || next.simDetection === false)
+      detected = null;
+    if (!next.usageAccess || next.mobileUsageSupported === false) {
+      snapshot = null;
+      lastRefresh = 0;
+      return;
+    }
+    if (refreshExistingUsage && snapshot &&
+        Date.now() - lastRefresh > 60000 && getMode() === "personal") {
+      const updated = await client.usage(deviceDays);
+      const verified = await client.capabilities();
+      capabilities = verified;
+      lastPermissionCheck = Date.now();
+      if (!verified.usageAccess || verified.mobileUsageSupported === false) {
+        snapshot = null;
+        lastRefresh = 0;
+      } else {
+        snapshot = updated;
+        lastRefresh = Date.now();
+      }
+    }
+  }
   function renderDevice() {
     const native = client.supported;
     const platform =
       capabilities?.platform || globalThis.Capacitor?.getPlatform?.() || "web";
-    return `<div class="device-page"><section class="connection-banner"><div><span class="source-badge">${icon("shield")} DEVICE & CARRIER CONNECTIONS</span><h2>Your phone knows the usage.<br>Your network knows the bill.</h2><p>Keep both sources clear. A detected SIM does not automatically authorize access to its carrier account.</p></div><span class="status-chip">${native ? "Android app" : platform === "ios" ? "iPhone app" : "Browser preview"}</span></section><div class="connection-grid section-gap"><section class="card connection-card"><div class="card-heading"><h2>${icon("sim")} SIM discovery</h2><span class="status-chip ${detected ? "connected" : ""}">${detected ? "Scanned" : native ? "Available" : "Android required"}</span></div><p>${native ? "Allow phone-state access to read your active carriers and SIM slots. No phone number, IMSI, messages or contacts are requested." : platform === "ios" ? "iOS does not expose reliable automatic SIM discovery to ordinary apps. Use a manual profile or an approved carrier connection." : "Install the Android build to discover physical SIMs. A browser cannot read the SIMs in your phone."}</p><button class="primary-btn" data-action="detect-sims" ${busy || !native ? "disabled" : ""}>${icon("sim")}${busy === "detect" ? "Detecting…" : "Detect my SIMs"}</button>${detected ? `<div class="support-grid">${detected.sims.length ? detected.sims.map((s) => `<div class="support-item"><strong>${esc(s.carrier)} · SIM ${s.slot}</strong><p>${s.isDefaultData ? "Default mobile data line" : ""}${s.isDefaultData && s.isDefaultVoice ? " · " : ""}${s.isDefaultVoice ? "Default voice line" : ""}${!s.isDefaultData && !s.isDefaultVoice ? "Active subscription" : ""}</p></div>`).join("") : "<p>No accessible active SIMs were reported. Check your phone’s SIM settings and permission.</p>"}</div>${detected.sims.length ? '<button class="secondary-btn section-gap" data-action="use-detected">Save detected SIM profiles</button>' : ""}` : ""}</section><section class="card connection-card"><div class="card-heading"><h2>${icon("data")} Device usage</h2><span class="status-chip ${capabilities?.usageAccess ? "connected" : ""}">${capabilities?.usageAccess ? "Access granted" : native ? "Permission needed" : "Android required"}</span></div><p>Android 10+ can report mobile data by app after Usage Access is enabled. These measurements combine mobile networks; they are not a remaining bundle balance.</p><div class="record-actions"><button class="secondary-btn" data-action="usage-settings" ${busy || !native ? "disabled" : ""}>${icon("settings")}Enable Usage Access</button><button class="primary-btn" data-action="refresh-device" ${busy || !native ? "disabled" : ""}>${icon("refresh")}${busy === "usage" ? "Reading…" : "Read device usage"}</button></div><p class="metric-evidence">${snapshot ? "Last read: " + esc(new Date(snapshot.queriedAt).toLocaleString()) : "No device measurement has been read."} Reads update while this screen is open or when you refresh. This is not continuous background monitoring.</p></section></div>${getMode() === "demo" ? '<div class="info-box">You are viewing the sample workspace. Switch to your personal tracker before detecting real SIMs or reading device usage.</div>' : ""}${error ? `<div class="form-error" role="alert">${esc(error)}</div>` : ""}${snapshot ? renderSnapshot() : ""}<section class="card section-gap"><div class="card-heading"><h2>Carrier billing connections</h2><span class="status-chip">Not connected</span></div><p class="card-sub">Official balances, purchases and rated call costs require verified subscriber authorization. No live carrier billing connection is enabled for customers.</p><div class="connection-grid section-gap">${Object.entries(
+    return `<div class="device-page">${renderReadiness()}<section class="connection-banner"><div><span class="source-badge">${icon("shield")} DEVICE & CARRIER CONNECTIONS</span><h2>Your phone knows the usage.<br>Your network knows the bill.</h2><p>Keep both sources clear. A detected SIM does not automatically authorize access to its carrier account.</p></div><span class="status-chip">${native ? "Android app" : platform === "ios" ? "iPhone app" : "Browser preview"}</span></section><div class="connection-grid section-gap"><section class="card connection-card"><div class="card-heading"><h2>${icon("sim")} SIM discovery</h2><span class="status-chip ${detected ? "connected" : ""}">${detected ? "Scanned" : native ? "Available" : "Android required"}</span></div><p>${native ? "Allow phone-state access to read your active carriers and SIM slots. No phone number, IMSI, messages or contacts are requested." : platform === "ios" ? "iOS does not expose reliable automatic SIM discovery to ordinary apps. Use a manual profile or an approved carrier connection." : "Install the Android build to discover physical SIMs. A browser cannot read the SIMs in your phone."}</p><button class="primary-btn" data-action="detect-sims" ${busy || !native ? "disabled" : ""}>${icon("sim")}${busy === "detect" ? "Detecting…" : "Detect my SIMs"}</button>${detected ? `<div class="support-grid">${detected.sims.length ? detected.sims.map((s) => `<div class="support-item"><strong>${esc(s.carrier)} · SIM ${s.slot}</strong><p>${s.isDefaultData ? "Default mobile data line" : ""}${s.isDefaultData && s.isDefaultVoice ? " · " : ""}${s.isDefaultVoice ? "Default voice line" : ""}${!s.isDefaultData && !s.isDefaultVoice ? "Active subscription" : ""}</p></div>`).join("") : "<p>No accessible active SIMs were reported. Check your phone’s SIM settings and permission.</p>"}</div>${detected.sims.length ? '<button class="secondary-btn section-gap" data-action="use-detected">Save detected SIM profiles</button>' : ""}` : ""}</section><section class="card connection-card"><div class="card-heading"><h2>${icon("data")} Device usage</h2><span class="status-chip ${capabilities?.usageAccess ? "connected" : ""}">${capabilities?.mobileUsageSupported === false && native ? "Android 10+ required" : capabilities?.usageAccess ? "Access granted" : native ? "Permission needed" : "Android required"}</span></div><p>Android 10+ can report mobile data by app after Usage Access is enabled. These measurements combine mobile networks; they are not a remaining bundle balance.</p><div class="record-actions"><button class="secondary-btn" data-action="usage-settings" ${busy || !native || capabilities?.mobileUsageSupported === false ? "disabled" : ""}>${icon("settings")}Enable Usage Access</button><button class="primary-btn" data-action="refresh-device" ${busy || !native || capabilities?.mobileUsageSupported === false ? "disabled" : ""}>${icon("refresh")}${busy === "usage" ? "Reading…" : "Read device usage"}</button></div><p class="metric-evidence">${snapshot ? "Last read: " + esc(new Date(snapshot.queriedAt).toLocaleString()) : "No device measurement has been read."} Reads update while this screen is open or when you refresh. This is not continuous background monitoring.</p></section></div>${getMode() === "demo" ? '<div class="info-box">You are viewing the sample workspace. Switch to your personal tracker before detecting real SIMs or reading device usage.</div>' : ""}${error ? `<div class="form-error" role="alert">${esc(error)}</div>` : ""}${snapshot ? renderSnapshot() : ""}<section class="card section-gap"><div class="card-heading"><h2>Carrier billing connections</h2><span class="status-chip">Not connected</span></div><p class="card-sub">Official balances, purchases and rated call costs require verified subscriber authorization. No live carrier billing connection is enabled for customers.</p><div class="connection-grid section-gap">${Object.entries(
       carrierInfo,
     )
       .map(
@@ -145,11 +210,15 @@ export function createConnectedFeatures(ctx) {
     return true;
   }
   async function handleAction(action, b) {
-    if (action === "detect-sims") {
+    if (action === "check-device") {
+      if (!requirePersonal()) return;
+      await run("check", () => recheckPermissions());
+    } else if (action === "detect-sims") {
       if (!requirePersonal()) return;
       await run("detect", async () => {
         detected = await client.detect();
-        capabilities = await client.capabilities();
+        await recheckPermissions();
+        if (!detected) throw Error("Phone access is no longer granted. Check permissions and retry.");
         if (!getState().sims.length && detected.sims.length)
           save(mergeDetectedSims(getState(), detected.sims).state);
         toast(
@@ -188,10 +257,17 @@ export function createConnectedFeatures(ctx) {
     } else if (action === "refresh-device") {
       if (!requirePersonal()) return;
       await run("usage", async () => {
-        capabilities = await client.capabilities();
-        snapshot = await client.usage(deviceDays);
+        await recheckPermissions();
+        if (capabilities.mobileUsageSupported === false)
+          throw Error("Mobile usage measurement requires Android 10 or newer.");
+        if (!capabilities.usageAccess)
+          throw Error("Usage access is not granted. Enable it in Android Settings and check again.");
+        const measured = await client.usage(deviceDays);
+        await recheckPermissions();
+        if (!capabilities.usageAccess)
+          throw Error("Usage access was revoked during measurement. Nothing was retained.");
+        snapshot = measured;
         lastRefresh = Date.now();
-        capabilities = await client.capabilities();
       });
     } else if (action === "clear-device") {
       snapshot = null;
@@ -223,14 +299,13 @@ export function createConnectedFeatures(ctx) {
       handleAction("refresh-device", e.target);
     }
   });
+  // Returning from Android Settings is NOT proof permission was granted.
+  // Recheck even when no previous usage snapshot exists, and clear previous
+  // measurements promptly when the user revokes Usage Access.
   document.addEventListener("visibilitychange", () => {
-    if (
-      document.visibilityState === "visible" &&
-      snapshot &&
-      Date.now() - lastRefresh > 60000 &&
-      getMode() !== "demo"
-    )
-      handleAction("refresh-device", null);
+    if (document.visibilityState === "visible" && client.supported &&
+        getMode() === "personal" && !busy)
+      void run("check", () => recheckPermissions({ refreshExistingUsage: true }));
   });
   return {
     setup,
@@ -252,12 +327,13 @@ export function createConnectedFeatures(ctx) {
       detected = null;
       error = "";
       lastRefresh = 0;
+      lastPermissionCheck = 0;
     },
     async initialize() {
       if (!client.supported) return;
       busy = "initializing";
       try {
-        capabilities = await client.capabilities();
+        await recheckPermissions();
         if (getMode() === "personal") {
           if (capabilities.phonePermission === "granted") {
             try {
@@ -268,7 +344,7 @@ export function createConnectedFeatures(ctx) {
               error = e.message;
             }
           }
-          if (capabilities.usageAccess) {
+          if (capabilities.usageAccess && capabilities.mobileUsageSupported !== false) {
             try {
               snapshot = await client.usage(deviceDays);
               lastRefresh = Date.now();
