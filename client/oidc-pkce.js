@@ -203,7 +203,8 @@ export function createOidcPkceSession({
     } catch { throw error("The identity provider returned an invalid token response."); }
     if (!onlyKeys(result,["access_token","token_type","expires_in",
       "id_token","refresh_token","scope","issued_token_type"]) ||
-        result.token_type?.toLowerCase()!=="bearer" ||
+        typeof result.token_type !== "string" ||
+        result.token_type.toLowerCase()!=="bearer" ||
         typeof result.access_token !== "string" ||
         result.access_token.length < MIN_TOKEN_BYTES ||
         result.access_token.length > MAX_TOKEN_BYTES ||
@@ -248,7 +249,8 @@ export function createOidcPkceSession({
   }
 
   function status() {
-    return {signedIn:!!accessToken && now() + 30000 < expiresAt,
+    if (accessToken && now() + 30000 >= expiresAt) clearToken();
+    return {signedIn:!!accessToken,
       expiresAt:accessToken?expiresAt:null,tokenStoredOnDevice:false};
   }
 
