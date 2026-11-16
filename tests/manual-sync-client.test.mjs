@@ -171,6 +171,21 @@ test("cloud download is a proposal only; caller must use backup review",async()=
   }),/Review the latest/i);
 });
 
+test("cloud download refuses a stale revision after another device writes",async()=>{
+  const cloud=ledger();cloud.purchases.push(purchase("old",12));
+  const newer=ledger();newer.purchases.push(purchase("other-device",20));
+  const local=ledger();local.purchases.push(purchase("mine",9));
+  const f=fixture({consent:true,remote:cloud,revision:1});
+  const plan=await f.api.preview(local);
+  f.externalWrite(newer);
+  await assert.rejects(()=>f.api.useCloudCopy(plan,local,{
+    confirmation:MANUAL_SYNC_CONFIRMATIONS.download,
+  }),err=>err instanceof SyncConflictError && err.currentRevision===2);
+  assert.equal(f.version,2);
+  assert.deepEqual(f.cloud,newer);
+  assert.equal(local.purchases[0].id,"mine");
+});
+
 test("revocation erases cloud copy but leaves local records alone",async()=>{
   const local=ledger();local.purchases.push(purchase("keep-local"));
   const f=fixture({consent:true,remote:local,revision:1});
