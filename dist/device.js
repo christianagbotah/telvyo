@@ -14,14 +14,26 @@ export function createDeviceClient(cap = globalThis.Capacitor) {
   return {
     supported,
     async capabilities() {
-      return plugin
-        ? plugin.getCapabilities()
+      const info = plugin
+        ? await plugin.getCapabilities()
         : {
             platform: cap?.getPlatform?.() || "web",
             simDetection: false,
             usageAccess: false,
             phonePermission: "unavailable",
+            mobileUsageSupported: false,
+            androidApiLevel: null,
           };
+      if (!info || typeof info !== "object")
+        throw new Error("Device permission status is unavailable.");
+      return {
+        ...info,
+        // Older installed builds may omit this field; do not mistake an
+        // unknown capability for an explicit unsupported-version response.
+        mobileUsageSupported: info.mobileUsageSupported !== false && supported,
+        androidApiLevel: Number.isInteger(info.androidApiLevel)
+          ? info.androidApiLevel : null,
+      };
     },
     async detect() {
       requireNative();
