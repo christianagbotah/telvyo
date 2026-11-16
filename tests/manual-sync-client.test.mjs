@@ -135,6 +135,37 @@ test("manual upload requires typed choice and unchanged local data",async()=>{
   }),/Review the latest/i,"Cannot replay a completed review");
 });
 
+test("the approved upload content is immutable during asynchronous sign-in",async()=>{
+  const local=ledger();local.purchases=[purchase("locked",8)];
+  const original=structuredClone(local);
+  let calls=0,submitted=null;
+  const fetchImpl=async(url,init)=>{
+    if(url.endsWith("/v1/privacy")) return json(200,{
+      accountConnected:true,cloudSync:{
+        available:true,granted:true,activePolicyVersion:"2026-11",
+      },
+    });
+    if(init.method==="GET")return json(200,{revision:0,ledger:null});
+    submitted=JSON.parse(init.body).ledger;
+    return json(200,{saved:true,revision:1});
+  };
+  const api=createManualSyncClient({
+    apiOrigin:"https://telvyo.test",cryptoProvider:webcrypto,fetchImpl,
+    getAccessToken:async()=>{
+      calls++;
+      if(calls===3)local.purchases[0].cost=99;
+      return TOKEN;
+    },
+  });
+  const preview=await api.preview(local);
+  await api.upload(preview,local,{
+    confirmation:MANUAL_SYNC_CONFIRMATIONS.upload,
+  });
+  assert.equal(calls,3);
+  assert.equal(local.purchases[0].cost,99,"Original object changed during an await");
+  assert.deepEqual(submitted,original,"Uploaded snapshot must remain what user approved");
+});
+
 test("a later device update returns 409 with no automatic retry or merge",async()=>{
   const f=fixture({consent:true,remote:ledger(),revision:1});
   const local=ledger();local.purchases.push(purchase("local"));
