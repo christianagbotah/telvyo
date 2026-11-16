@@ -19,7 +19,7 @@
 | Carrier subscriber balances/charges | **Blocked: no approved live integration** | Carrier contract, production credentials, verified owner/consent, mapping and field-by-field reconciliation |
 | MTN Ghana | Application-authentication test only; no subscriber API authorization | MTN production product approval, country/usage enums and consented test subscriber results |
 | Telecel and AT | **Blocked: partner interface not established** | Approved integration contracts and test accounts |
-| Sign-in and server sync | Server-side verified-identity consent ledger implemented in source; user login and sync **not activated** | OIDC/OAuth PKCE client, configured issuer/JWKS, migrations, token lifecycle, real identity integration and deletion tests |
+| Sign-in and server sync | Signed-JWT consent/sync backend and **source-only browser OIDC authorization-code PKCE foundation** with memory-only access token and backend verification; neither account UI nor sync activated | Production IdP registration/JWKS/issuer/audience, provider sign-in tests, BFF/token model security review, native login, account recovery/logout, consent UI, database provisioning, rate limiting and real-device testing |
 | Cloud AI advisor | Rules-based local advisor exists; separate server not live | Auth, explicit opt-in, privacy terms, shared rate limits, cost monitoring and provider test |
 | iOS | iOS source exists; no verified device build | Xcode archive, signing, functional and safe-area tests, store compliance |
 | Android release | Debug APK only | Organization-owned signing, Play Console tests, target SDK/policy/privacy review |

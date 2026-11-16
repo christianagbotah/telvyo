@@ -14,6 +14,10 @@ Only `source`, `daysObserved`, `averageDailyMB`, `backgroundShare` and `projecte
 
 The rate limiter is process-local and bounded. Multi-instance production deployment needs a shared limiter or API gateway. Add operational monitoring, a secrets-rotation policy and audited deployment controls before launch. The source tests use stub provider responses; they do not establish live account access or provider availability.
 
+## Source-only customer sign-in foundation — not activated
+
+See [customer OIDC PKCE foundation](customer-signin-foundation.md). A browser-only OAuth authorization-code/PKCE module can generate state/nonce/verifier, validate exact redirect and expiry, exchange a code, and require an actual private API JWT check before keeping a short-lived token **in memory only**. There is no configured provider, public login UI, Android/iOS browser redirect or server activation. Review the BFF alternative and RFC 9700/RFC 10017 before release; account registration, recovery and native system-browser sign-in remain incomplete.
+
 ## Source-only manual cloud sync client — not activated
 
 See [the dormant manual sync client contract](manual-sync-client.md). The `client/` modules compare a local ledger with an authenticated snapshot, require typed opt-in and data-replacement decisions, reject stale local/cloud revisions and never merge automatically. They are **not loaded by the public website**; no OIDC sign-in, customer consent UI or public API exposure has been enabled. Browser-based OAuth implementation must conform to PKCE/CSRF safeguards and reviewed secure token custody before activation.
