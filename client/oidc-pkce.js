@@ -165,7 +165,7 @@ export function createOidcPkceSession({
 
     const allowed = new Set(["state","code","iss","session_state","error","error_description"]);
     const entries = [...url.searchParams.keys()];
-    if (entries.some(key => !allowed.has(key)) ||
+    if (url.hash || entries.some(key => !allowed.has(key)) ||
         new Set(entries).size !== entries.length ||
         entries.filter(key=>key==="state").length!==1 ||
         url.searchParams.get("state")!==pending.state)
