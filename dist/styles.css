@@ -792,3 +792,19 @@ dialog { border-color: #e3e2d8; }
 .monthly-spending-row.reached .monthly-spending-track span{background:#b31a2e}
 .monthly-spending-panel .metric-evidence{margin-top:14px;line-height:1.65}
 @media(max-width:760px){.monthly-spending-list{grid-template-columns:1fr}.monthly-spending-row{padding:14px}}
+
+/* Side-by-side local vs backup review: never restore without explicit input. */
+.restore-review{border:1px solid var(--line,#e5e3db);border-radius:12px;overflow:hidden;margin:17px 0}
+.restore-review-row{display:grid;grid-template-columns:minmax(100px,1.35fr) repeat(2,minmax(55px,.6fr)) minmax(120px,1fr);gap:10px;align-items:center;padding:11px 13px;border-bottom:1px solid #e7e5df;font-size:12px;font-variant-numeric:tabular-nums}
+.restore-review-row:last-child{border-bottom:none}
+.restore-review-row strong{font-weight:650}
+.restore-review-heading{background:#f7f6f2;font-weight:700;color:#48525a;font-size:11px}
+#restore-form .info-box{line-height:1.75}
+#restore-form .field{margin-top:18px}
+#restore-form .form-error:empty{display:none}
+#restore-form .modal-footer{flex-wrap:wrap}
+#restore-form .danger-btn{white-space:normal;text-align:center}
+@media(max-width:600px){
+ .restore-review-row{grid-template-columns:minmax(85px,1.2fr) 52px 52px minmax(92px,1fr);gap:5px;padding:11px 7px;font-size:11px}
+ .restore-review-heading{font-size:10px}
+}

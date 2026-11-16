@@ -53,6 +53,11 @@ function fixture({ options = {}, configuredEnv = env } = {}) {
       rows.set(k,entry);
       return entry;
     },
+    async withAccountLock(k, action) {
+      // Fake store models the transaction contract; real concurrency
+      // serialization is tested against PostgreSQL in sync-postgres.test.
+      return action({ sync:this, consent:{latest:async()=>null} });
+    },
   };
   const api = createSyncAPI({
     env:configuredEnv, repository, now:()=>NOW,
@@ -205,6 +210,14 @@ test("provider, decryption and repository failures do not disclose private detai
       get:async()=>{throw Error("secret SQL and password");},
       save:async()=>{throw Error("secret SQL and password");},
       clear:async()=>{throw Error("secret SQL and password");},
+      withAccountLock:async(k,action)=>action({
+        sync:{
+          get:async()=>{throw Error("secret SQL and password");},
+          save:async()=>{throw Error("secret SQL and password");},
+          clear:async()=>{throw Error("secret SQL and password");},
+        },
+        consent:{latest:async()=>null},
+      }),
     },consentCheck:async()=>true,verifyToken:async()=>({sub:"alice"}),now:()=>NOW,
   });
   for(const [method,options] of [

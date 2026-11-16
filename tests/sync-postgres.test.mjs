@@ -62,6 +62,61 @@ test("private sync PostgreSQL migration, encryption, isolation, CAS and tombston
     assert.equal(Number(fourth.revision),4);
     assert.equal((await store.get(bob)),null);
     await store.clear(alice);
+
+    // Real two-connection race: an upload that holds the account lock may
+    // finish, but its succeeding revocation MUST erase it before committing.
+    await pool.query(
+      "INSERT INTO telvyo.consent_events (account_key, purpose, granted, policy_version) " +
+      "VALUES ($1, 'cloud-sync', true, '2026-11')", [alice],
+    );
+    let releaseWriter;
+    const writerGate = new Promise(resolve => { releaseWriter = resolve; });
+    let enteredWriter;
+    const writerEntered = new Promise(resolve => { enteredWriter = resolve; });
+    const writing = store.withAccountLock(alice, async ({sync, consent}) => {
+      const before = await consent.latest(alice, "cloud-sync");
+      assert.equal(before.granted,true);
+      enteredWriter();
+      await writerGate;
+      const current = await sync.get(alice);
+      return sync.save(alice, Number(current.revision),
+        encryptSnapshot(data, alice, Number(current.revision) + 1, key));
+    });
+    await writerEntered;
+    const revoking = store.withAccountLock(alice, async ({sync, consent}) => {
+      await sync.clear(alice);
+      return consent.append(alice, "cloud-sync", false, "2026-11");
+    });
+    releaseWriter();
+    const [writeResult, revocation] = await Promise.all([writing, revoking]);
+    assert.equal(writeResult.saved,true);
+    assert.ok(revocation.at instanceof Date, "Revocation was recorded");
+    const latestConsent = await pool.query(
+      "SELECT granted FROM telvyo.consent_events " +
+      "WHERE account_key = $1 AND purpose = 'cloud-sync' ORDER BY id DESC LIMIT 1",
+      [alice],
+    );
+    assert.equal(latestConsent.rows[0].granted,false,
+      "Committed consent must be revoked after a concurrent upload");
+    assert.equal((await store.get(alice)).snapshot,null);
+    assert.equal((await store.get(alice)).revision > writeResult.revision,true);
+
+    // Opposite ordering: consent was revoked before an attempted PUT.
+    // The locked consent check must reject the upload without restoring it.
+    const lateWrite = await store.withAccountLock(alice, async ({sync, consent}) => {
+      const latest = await consent.latest(alice, "cloud-sync");
+      if (!latest?.granted) return "revoked";
+      const current = await sync.get(alice);
+      return sync.save(alice, Number(current.revision),
+        encryptSnapshot(data, alice, Number(current.revision) + 1, key));
+    });
+    assert.equal(lateWrite, "revoked");
+    assert.equal((await store.get(alice)).snapshot,null);
+
     await pool.query("DELETE FROM telvyo.sync_snapshots WHERE account_key = $1",[alice]);
+    await pool.query(
+      "DELETE FROM telvyo.consent_events WHERE account_key = $1 AND purpose = 'cloud-sync'",
+      [alice],
+    );
   }finally{await pool.end();}
 });
