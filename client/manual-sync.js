@@ -180,6 +180,15 @@ export function createManualSyncClient({
     if (confirmation !== DOWNLOAD_PROMPT)
       throw new SyncReviewError(`Type ${DOWNLOAD_PROMPT} to review replacing local records.`);
     await checkPreview(previewState,currentLocal);
+    // Even a download may be based on an outdated preview. Check the
+    // revision again before handing a potentially destructive replacement
+    // to the user's local restore-review flow.
+    const latest = await request("GET","/v1/sync");
+    if (!Number.isSafeInteger(latest.revision) ||
+        latest.revision !== previewState.revision)
+      throw new SyncConflictError(
+        Number.isSafeInteger(latest.revision) ? latest.revision : null,
+      );
     // Deliberately returns data without altering storage. The caller MUST use
     // the reviewed backup-replacement UI before committing any local records.
     issued.delete(previewState);
