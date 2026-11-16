@@ -25,8 +25,9 @@ function httpsURL(value, label, {allowPath=true}={}) {
   let url;
   try { url = new URL(value); } catch { throw error(`Invalid ${label}.`); }
   if (url.protocol !== "https:" || url.username || url.password ||
-      url.search || url.hash || !url.hostname || url.href !== value ||
-      (!allowPath && url.pathname !== "/"))
+      url.search || url.hash || !url.hostname ||
+      (allowPath ? url.href !== value
+        : (url.pathname !== "/" || url.origin !== value)))
     throw error(`Invalid registered HTTPS ${label}.`);
   return url;
 }
