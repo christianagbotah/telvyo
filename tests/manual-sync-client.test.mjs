@@ -193,7 +193,7 @@ test("offline, missing deployment and private failures do not reveal payloads",a
   const f=fixture({online:false});
   await assert.rejects(()=>f.api.status(),err=>
     /unavailable/.test(err.message) && !/private network/.test(err.message));
-  const wrong=fixture({token:"invalid"});
+  const wrong=fixture({token:"invalid.but.sufficiently.long"});
   await assert.rejects(()=>wrong.api.status(),/Sign in again/);
   const noAuth=createManualSyncClient({
     apiOrigin:"https://telvyo.test",getAccessToken:async()=> " ",
