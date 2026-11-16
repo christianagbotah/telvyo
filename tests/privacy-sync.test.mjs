@@ -102,6 +102,23 @@ test("cloud consent never activates without a separate encryption key",async()=>
   assert.doesNotMatch(await result.text(),/ACCOUNT_SYNC_ENCRYPTION_KEY|private/i);
 });
 
+test("cloud ciphertext can still be erased when the encryption key is missing",async()=>{
+  const {api,req,key,accounts}=setup({invalidSync:true});
+  const alice=key("alice");
+  accounts.set(alice,{revision:2,snapshot:Buffer.from("OLD SECRET CIPHERTEXT")});
+  let r=await api(req("/v1/privacy/cloud-sync","DELETE"));
+  assert.equal(r.status,200);
+  assert.equal((await r.json()).cloudSyncDataDeleted,true);
+  assert.equal(accounts.get(alice).snapshot,null);
+  accounts.set(alice,{revision:4,snapshot:Buffer.from("ANOTHER SECRET")});
+  r=await api(req("/v1/privacy/records","DELETE",{
+    headers:{"x-telvyo-confirm":"DELETE_CLOUD_RECORDS"},
+  }));
+  assert.equal(r.status,200);
+  assert.equal((await r.json()).cloudSyncDataDeleted,true);
+  assert.equal(accounts.get(alice).snapshot,null);
+});
+
 test("revocation erases ciphertext, preserves other accounts and is fail closed",async()=>{
   const {api,req,key,deleted,accounts}=setup();
   const alice=key("alice"),bob=key("bob");
