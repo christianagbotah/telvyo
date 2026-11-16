@@ -90,7 +90,14 @@ test("private sync PostgreSQL migration, encryption, isolation, CAS and tombston
     releaseWriter();
     const [writeResult, revocation] = await Promise.all([writing, revoking]);
     assert.equal(writeResult.saved,true);
-    assert.equal(revocation.granted,false);
+    assert.ok(revocation.at instanceof Date, "Revocation was recorded");
+    const latestConsent = await pool.query(
+      "SELECT granted FROM telvyo.consent_events " +
+      "WHERE account_key = $1 AND purpose = 'cloud-sync' ORDER BY id DESC LIMIT 1",
+      [alice],
+    );
+    assert.equal(latestConsent.rows[0].granted,false,
+      "Committed consent must be revoked after a concurrent upload");
     assert.equal((await store.get(alice)).snapshot,null);
     assert.equal((await store.get(alice)).revision > writeResult.revision,true);
 
