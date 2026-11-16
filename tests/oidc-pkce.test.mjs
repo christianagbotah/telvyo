@@ -185,6 +185,7 @@ test("invalid provider token, expired token and failed server verification never
     {tokenResponse:json(400,{error:"invalid_grant",client_secret:"EXPOSED?"})},
     {tokenResponse:json(200,{access_token:"short",token_type:"Bearer",expires_in:3600})},
     {tokenResponse:json(200,{access_token:TOKEN,token_type:"mac",expires_in:3600})},
+    {tokenResponse:json(200,{access_token:TOKEN,token_type:99,expires_in:3600})},
     {tokenResponse:json(200,{access_token:TOKEN,token_type:"Bearer",expires_in:15})},
     {tokenResponse:json(200,{access_token:TOKEN,token_type:"Bearer",expires_in:"3600"})},
     {tokenResponse:new Response("HTML",{status:200,headers:{"content-type":"text/html"}})},
@@ -208,6 +209,7 @@ test("session expiry, memory-only logout and repeated consent remain independent
   f.setTime(f.time+600000-31000);
   assert.equal(f.session.getAccessToken(),TOKEN);
   f.setTime(f.time+2000);
+  assert.equal(f.session.status().signedIn,false);
   assert.throws(()=>f.session.getAccessToken(),SignInError);
   assert.deepEqual(f.session.status(),{
     signedIn:false,expiresAt:null,tokenStoredOnDevice:false,
