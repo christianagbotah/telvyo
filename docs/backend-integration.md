@@ -14,6 +14,10 @@ Only `source`, `daysObserved`, `averageDailyMB`, `backgroundShare` and `projecte
 
 The rate limiter is process-local and bounded. Multi-instance production deployment needs a shared limiter or API gateway. Add operational monitoring, a secrets-rotation policy and audited deployment controls before launch. The source tests use stub provider responses; they do not establish live account access or provider availability.
 
+## Source-only manual cloud sync client — not activated
+
+See [the dormant manual sync client contract](manual-sync-client.md). The `client/` modules compare a local ledger with an authenticated snapshot, require typed opt-in and data-replacement decisions, reject stale local/cloud revisions and never merge automatically. They are **not loaded by the public website**; no OIDC sign-in, customer consent UI or public API exposure has been enabled. Browser-based OAuth implementation must conform to PKCE/CSRF safeguards and reviewed secure token custody before activation.
+
 ## Private encrypted cross-device snapshot foundation — not activated
 
 The Node service now has a source-only, **opt-in encrypted sync** backend. See [private sync architecture, migration steps, security and remaining launch gates](private-sync-foundation.md). It is not publicly reverse-proxied, and web/mobile sign-in and sync UI are not connected.
