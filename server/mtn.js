@@ -8,21 +8,64 @@ const OPERATIONS = {
 };
 const identifier = (value) =>
   typeof value === "string" && /^[a-zA-Z0-9+][a-zA-Z0-9+_-]{0,79}$/.test(value);
+// Only these fixed, public OAuth error *codes* may be surfaced to the server
+// operator. The upstream body, response headers, URLs, tokens and stack are
+// never included in exceptions or CLI output.
+const SAFE_OAUTH_CODES = new Set([
+  "invalid_client", "unauthorized_client", "invalid_request",
+  "invalid_grant", "unsupported_grant_type", "access_denied",
+]);
+export class MtnProviderError extends Error {
+  constructor(kind, status = null, oauthCode = null) {
+    super("MTN could not complete the approved request. Check product access and provider status.");
+    this.name = "MtnProviderError";
+    this.kind = ["HTTP", "NETWORK", "BAD_RESPONSE"].includes(kind) ? kind : "NETWORK";
+    this.status = Number.isInteger(status) && status >= 400 && status <= 599
+      ? status : null;
+    this.oauthCode = SAFE_OAUTH_CODES.has(oauthCode) ? oauthCode : null;
+  }
+}
 async function providerJSON(url, options, fetchImpl) {
+  let response;
   try {
-    const response = await fetchImpl(url, {
+    response = await fetchImpl(url, {
       ...options,
       redirect: "error",
       signal: AbortSignal.timeout(15000),
     });
-    if (!response.ok) throw Error();
+  } catch {
+    throw new MtnProviderError("NETWORK");
+  }
+  if (!response || typeof response.ok !== "boolean")
+    throw new MtnProviderError("BAD_RESPONSE");
+
+  if (!response.ok) {
+    let oauthCode = null;
+    const type = response.headers?.get?.("content-type") || "";
+    if (/^application\/(?:[\w.-]+\+)?json(?:\s*;|\s*$)/i.test(type)) {
+      try {
+        const body = await response.text();
+        if (new TextEncoder().encode(body).byteLength <= 4096) {
+          const data = JSON.parse(body);
+          const code = data && typeof data === "object" && !Array.isArray(data)
+            ? data.error : null;
+          if (typeof code === "string" && SAFE_OAUTH_CODES.has(code))
+            oauthCode = code;
+        }
+      } catch {
+        // Provider errors can be non-JSON despite the declared content type.
+        // We never report or persist the raw body.
+      }
+    }
+    throw new MtnProviderError("HTTP", response.status, oauthCode);
+  }
+  try {
     const value = await response.json();
-    if (!value || typeof value !== "object") throw Error();
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error("Unexpected response");
     return value;
   } catch {
-    throw new Error(
-      "MTN could not complete the approved request. Check product access and provider status.",
-    );
+    throw new MtnProviderError("BAD_RESPONSE");
   }
 }
 export async function requestMtnAccessToken(
