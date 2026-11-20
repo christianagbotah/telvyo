@@ -8,7 +8,7 @@
  */
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
-import { requestMtnAccessToken } from "../server/mtn.js";
+import { MtnProviderError, requestMtnAccessToken } from "../server/mtn.js";
 
 export async function checkMtnAppCredentials({
   env = process.env,
@@ -33,8 +33,16 @@ export async function checkMtnAppCredentials({
       " minutes.");
     log("Subscriber access: NOT tested; requires MTN-approved authorization and test data.");
     return 0;
-  } catch {
+  } catch (failure) {
     error("MTN app authentication: unsuccessful. Check approved credentials/product access; no secret details are shown.");
+    if (failure instanceof MtnProviderError) {
+      const status = failure.status === null ? "" : ` HTTP ${failure.status}.`;
+      const code = failure.oauthCode ? ` OAuth code: ${failure.oauthCode}.` : "";
+      const category = failure.kind === "HTTP" ? "Provider rejected request."
+        : failure.kind === "NETWORK" ? "Provider connection failed."
+        : "Provider returned an invalid success response.";
+      error(`MTN diagnostic: ${category}${status}${code}`);
+    }
     return 1;
   }
 }

@@ -91,3 +91,7 @@ node --env-file=/home/lightworld/.config/telvyo/mtn.env scripts/check-mtn-token.
 ```
 
 The output contains only success/failure and expiry timing, **never a token or secret**. This verifies **application** authentication only; it does not grant subscriber access, verify Ghana's `countryCode` or `usageType` values, or establish carrier consent. Do not enable any public subscriber API before MTN confirms its subscriber ownership/consent procedure, test MSISDN, permitted routing values and response units. No live provider request is made until an operator adds credentials and runs the check.
+
+### MTN OAuth 401 diagnostics (20 November 2026)
+
+The server-only OAuth smoke check now reports a **safe HTTP status** and narrowly allowlisted provider OAuth code when present; it never prints the token, Consumer Key, Consumer Secret, upstream response body or headers. The most recent authorized request using the documented `/v1/oauth/access_token` route returned **HTTP 401** and no recognized provider OAuth error code. Do not change endpoints by guesswork or expose customer subscriber APIs. For source-based contract evidence, July 2026 portal migration considerations, private check instructions and a redacted support escalation, see [MTN OAuth diagnostic and support case](mtn-oauth-diagnostic.md).
