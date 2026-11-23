@@ -1,6 +1,16 @@
-# MTN Ghana OAuth diagnostic and escalation — 20 November 2026
+# MTN Ghana OAuth diagnostic and escalation — 22 November 2026
 
 **Status: BLOCKED by HTTP 401 at the production token endpoint. Subscriber access NOT tested and NOT enabled.**
+
+## 22 November 2026 — verified private-VPS credential load
+
+- The authorized VPS was checked live. `/home/lightworld/.config/telvyo/mtn.env` exists, is owned by `lightworld`, and remains private (`0600`).
+- Node.js was run as `lightworld` with the explicit `--env-file=/home/lightworld/.config/telvyo/mtn.env` flag. Both `MTN_CLIENT_ID` and `MTN_CLIENT_SECRET` were **loaded and nonempty**; no credential contents were displayed.
+- An authorized single OAuth check with those variables reached MTN and returned **HTTP 401**, without issuing a token. Thus missing env-file loading is **not** the explanation for this result; credential validity, product-level gateway provisioning and account/project routing still require MTN confirmation.
+- The public `https://telvyo.lightworldtech.com/` returned HTTP 200. Its `/api/health`, `/api/mtn` and `/api/status` returned HTTP 404. The static customer website intentionally does not read the private env file or expose an MTN subscriber API.
+- The owner has since created a new Telvyo application on the current AppX Ghana platform, with Usage Management and other customer products listed as approved. **This does not establish production token-gateway provisioning**; the 401 persists with the configured credential pair.
+- VPS test suite: 158 total, **156 passed, 0 failed, 2 skipped**; source syntax checks passed. These results do not prove carrier access or live subscriber readiness.
+- The private OAuth CLI now explicitly distinguishes loaded server environment variables from successful MTN authentication. It never prints credential values or response bodies.
 
 ## Grounded observations
 
@@ -15,7 +25,7 @@
 ## Technical follow-up
 
 1. Open the **existing Telvyo application** and inspect each subscribed product's state, not only the application status. Confirm Usage Management is **Approved** in the **production** environment for Ghana. A checked box in the app edit form alone may indicate selection, not approval.
-2. Ask MTN to confirm whether the application created 14 November 2026 is provisioned on the production gateway and belongs to the proper Ghana market/project after the July 2026 migration. If access to `appx.developers.mtn.com` is denied, request the account/project mapping to be checked. Do not create duplicates unless instructed by MTN.
+2. Ask MTN to confirm whether the application created 14 November 2026 is provisioned on the production gateway and belongs to the proper Ghana market/project after the July 2026 migration. Check the new AppX Ghana app's product-level production provisioning and its project mapping; do not create additional duplicates unless MTN instructs you.
 3. Ask MTN to identify the correct production OAuth token URL for this exact subscription, the required credential type and environment, and whether the Consumer Key and Secret displayed in the current application are active gateway credentials. Never email actual keys or secrets in plaintext.
 4. Once MTN confirms, perform **one** authorized private-VPS OAuth smoke check using `runuser -u lightworld -- node --env-file=/home/lightworld/.config/telvyo/mtn.env /home/lightworld/.telvyo-source/scripts/check-mtn-token.mjs`. It prints only authentication outcome, HTTP status and a narrowly allowlisted OAuth error code, never token/body/credentials.
 5. A successful token would prove **application authentication only**, not entitlement to usage records. Before any subscriber call: obtain Ghana-specific `countryCode` and `usageType`, production product scope, server-side consent/mapping, audit and revocation rules, and a consented test account. Never use an arbitrary mobile number as an authentication test.
@@ -26,14 +36,14 @@ Subject: Ghana Telvyo Usage Management — Approved app, production OAuth HTTP 4
 
 Hello MTN API Support,
 
-Our Telvyo application is listed under **Approved apps** on developers.mtn.com, created 14 November 2026 for Ghana, with **Usage Management** selected. The application's production API token request is unsuccessful:
+Our Telvyo application is now present on the current AppX Ghana platform with Usage Management selected and an approved application listing. The private VPS has confirmed that both saved credential fields load, but the production API token request remains unsuccessful:
 
 - Endpoint: `POST https://api.mtn.com/v1/oauth/access_token?grant_type=client_credentials`
 - Content type: `application/x-www-form-urlencoded`
 - Body parameter names only: `client_id` and `client_secret` (using the app's saved Consumer Key and Secret; values withheld)
-- Result: **HTTP 401** on 20 November 2026; no access token issued
+- Result: **HTTP 401** reconfirmed on 22 November 2026; no access token issued
 
-Please verify (1) whether this application and its **production Usage Management subscription** are approved and provisioned on the correct Ghana gateway/project; (2) whether applications created after July 2026 on developers.mtn.com require a project migration or registration on appx.developers.mtn.com, which we currently cannot access; (3) which documented OAuth endpoint and credential type is correct for this exact application; and (4) whether there is a gateway error or migration mapping issue explaining the 401.
+Please verify (1) whether this application and its **production Usage Management subscription** are approved and provisioned on the correct Ghana gateway/project; (2) whether the current AppX Ghana application's production gateway/project mapping and subscription are fully provisioned; (3) which documented OAuth endpoint and credential type is correct for this exact application; and (4) whether there is a gateway error or migration mapping issue explaining the 401.
 
 We can provide the application ID and a redacted transaction/time reference through your authenticated support channel if needed. We will not transmit the Consumer Secret, access tokens or any customer subscriber information in email.
 
