@@ -34,6 +34,10 @@ export async function checkMtnAppCredentials({
     log("Subscriber access: NOT tested; requires MTN-approved authorization and test data.");
     return 0;
   } catch (failure) {
+    // Preflight proves only that both fields reached this Node process; it
+    // cannot establish gateway provisioning, credential validity or entitlement.
+    // Never print their values, lengths, prefixes, upstream bodies or URLs.
+    error("MTN credential preflight: both credential fields were loaded into this server process.");
     error("MTN app authentication: unsuccessful. Check approved credentials/product access; no secret details are shown.");
     if (failure instanceof MtnProviderError) {
       const status = failure.status === null ? "" : ` HTTP ${failure.status}.`;
