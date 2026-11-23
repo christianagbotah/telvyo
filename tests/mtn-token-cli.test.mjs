@@ -8,6 +8,7 @@ test("MTN OAuth check requires private credentials, never logs tokens", async ()
   const error = value => errors.push(value);
   assert.equal(await checkMtnAppCredentials({env:{},log,error}),2);
   assert.match(errors.join(" "),/not configured/);
+  assert.doesNotMatch(errors.join(" "),/credential preflight/);
   const code = await checkMtnAppCredentials({
     env:{MTN_CLIENT_ID:"private-client-id",MTN_CLIENT_SECRET:"private-client-secret"},
     authorize: async ({clientId,clientSecret}) => {
@@ -23,7 +24,7 @@ test("MTN OAuth check requires private credentials, never logs tokens", async ()
   assert.doesNotMatch(logs.join(" ")+errors.join(" "),/private-client-id|private-client-secret|confidential-access-token/);
 });
 
-test("MTN OAuth check sanitizes provider failure", async () => {
+test("MTN OAuth check confirms loaded fields separately from gateway rejection", async () => {
   const logs=[],errors=[];
   const result=await checkMtnAppCredentials({
     env:{MTN_CLIENT_ID:"x",MTN_CLIENT_SECRET:"secret-test"},
@@ -33,5 +34,7 @@ test("MTN OAuth check sanitizes provider failure", async () => {
   });
   assert.equal(result,1);
   assert.equal(logs.length,0);
+  assert.match(errors.join(" "),/credential preflight: both credential fields were loaded/);
+  assert.match(errors.join(" "),/authentication: unsuccessful/);
   assert.doesNotMatch(errors.join(" "),/secret-test|upstream leaked stack/);
 });
